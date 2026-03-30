@@ -49,6 +49,46 @@ function createStore(): SessionStore {
 }
 
 describe('POST /v1/responses', () => {
+  it('defaults model and reasoning_effort when the client omits both fields', async () => {
+    const runtime = new FakeRuntime(
+      {
+        threadId: 'thread-response-defaults',
+        finalResponse: 'Hello from defaults',
+        items: [],
+        usage: null,
+      },
+      {
+        threadId: 'thread-response-defaults',
+        events: createStream([]),
+      },
+    );
+
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+      },
+      runtime,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/responses',
+      payload: {
+        input: 'Say hello.',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json<MinimalResponseBody>()).toMatchObject({
+      model: 'gpt-5.4',
+    });
+    expect(runtime.runCalls[0]?.threadOptions).toMatchObject({
+      model: 'gpt-5.4',
+      modelReasoningEffort: 'medium',
+    });
+  });
+
   it('creates a response object, a bridge session, and response persistence for a new request', async () => {
     const sessionStore = createStore();
     const runtime = new FakeRuntime(
@@ -396,6 +436,48 @@ describe('POST /v1/responses', () => {
     });
     expect(runtime.runCalls[0]?.threadOptions).toMatchObject({
       model: 'gpt-5.3-codex',
+    });
+  });
+
+  it('lets an explicit model and reasoning_effort override bridge defaults', async () => {
+    const runtime = new FakeRuntime(
+      {
+        threadId: 'thread-response-override',
+        finalResponse: 'Hello from override',
+        items: [],
+        usage: null,
+      },
+      {
+        threadId: 'thread-response-override',
+        events: createStream([]),
+      },
+    );
+
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+      },
+      runtime,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/responses',
+      payload: {
+        model: 'gpt-5.3-codex',
+        reasoning_effort: 'high',
+        input: 'Say hello.',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json<MinimalResponseBody>()).toMatchObject({
+      model: 'gpt-5.3-codex',
+    });
+    expect(runtime.runCalls[0]?.threadOptions).toMatchObject({
+      model: 'gpt-5.3-codex',
+      modelReasoningEffort: 'high',
     });
   });
 });

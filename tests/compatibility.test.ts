@@ -1,6 +1,7 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
 import type { ThreadEvent } from '@openai/codex-sdk';
 import { afterEach, describe, expect, it } from 'vitest';
 import OpenAI from 'openai';
@@ -111,5 +112,48 @@ describe('OpenAI SDK compatibility', () => {
 
     expect(response.output_text).toBe('Hello from SDK responses');
     expect(response.model).toBe('gpt-5.4');
+  });
+
+  it('applies bridge defaults when a raw compatibility request omits model', async () => {
+    const runtime = new FakeRuntime(
+      {
+        threadId: 'thread-compat-defaults',
+        finalResponse: 'Hello from default compatibility',
+        items: [],
+        usage: null,
+      },
+      {
+        threadId: 'thread-compat-defaults',
+        events: createEmptyEvents(),
+      },
+    );
+    const app = await createApp({ env: createEnv(), runtime });
+    openApps.push(app);
+
+    await app.listen({ host: '127.0.0.1', port: 0 });
+    const address = app.server.address();
+    if (!address || typeof address === 'string') {
+      throw new Error('Failed to resolve a compatibility test port.');
+    }
+
+    const response = await fetch(`http://127.0.0.1:${address.port}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer compat-key',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: 'Say hello.' }],
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      model: 'gpt-5.4',
+    });
+    expect(runtime.runCalls[0]?.threadOptions).toMatchObject({
+      model: 'gpt-5.4',
+      modelReasoningEffort: 'medium',
+    });
   });
 });

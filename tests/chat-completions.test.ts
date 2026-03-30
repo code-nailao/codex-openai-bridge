@@ -30,6 +30,46 @@ function getRuntimeInputText(value: unknown): string {
 }
 
 describe('POST /v1/chat/completions', () => {
+  it('defaults model and reasoning_effort when the client omits both fields', async () => {
+    const runtime = new FakeRuntime(
+      {
+        threadId: 'thread-chat-defaults',
+        finalResponse: 'Hello from defaults',
+        items: [],
+        usage: null,
+      },
+      {
+        threadId: 'thread-chat-defaults',
+        events: createStream([]),
+      },
+    );
+
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+      },
+      runtime,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: {
+        messages: [{ role: 'user', content: 'Say hello.' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      model: 'gpt-5.4',
+    });
+    expect(runtime.runCalls[0]?.threadOptions).toMatchObject({
+      model: 'gpt-5.4',
+      modelReasoningEffort: 'medium',
+    });
+  });
+
   it('returns a non-stream OpenAI-compatible completion and session headers', async () => {
     const runtime = new FakeRuntime(
       {
@@ -231,6 +271,48 @@ describe('POST /v1/chat/completions', () => {
     });
     expect(runtime.runCalls[0]?.threadOptions).toMatchObject({
       model: 'gpt-5.4',
+    });
+  });
+
+  it('lets an explicit model and reasoning_effort override bridge defaults', async () => {
+    const runtime = new FakeRuntime(
+      {
+        threadId: 'thread-chat-override',
+        finalResponse: 'Hello from override',
+        items: [],
+        usage: null,
+      },
+      {
+        threadId: 'thread-chat-override',
+        events: createStream([]),
+      },
+    );
+
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+      },
+      runtime,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: {
+        model: 'gpt-5.3-codex',
+        reasoning_effort: 'high',
+        messages: [{ role: 'user', content: 'Say hello.' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      model: 'gpt-5.3-codex',
+    });
+    expect(runtime.runCalls[0]?.threadOptions).toMatchObject({
+      model: 'gpt-5.3-codex',
+      modelReasoningEffort: 'high',
     });
   });
 });

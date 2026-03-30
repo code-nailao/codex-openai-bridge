@@ -3,6 +3,11 @@ import { z } from 'zod';
 
 import type { BridgeConfig } from '../config/env.js';
 import { findModelAlias, type ModelAlias } from '../config/models.js';
+import {
+  DEFAULT_MODEL,
+  DEFAULT_REASONING_EFFORT,
+  SUPPORTED_REASONING_EFFORTS,
+} from '../config/request-defaults.js';
 import { createInvalidRequestError, createModelNotFoundError, createUnsupportedFeatureError } from '../server/errors/bridge-error.js';
 import { createResponseId } from '../utils/ids.js';
 
@@ -16,16 +21,16 @@ const inputMessageSchema = z.object({
   content: z.union([z.string(), z.array(textPartSchema)]),
 });
 
-const reasoningEffortSchema = z.enum(['minimal', 'low', 'medium', 'high', 'xhigh']);
+const reasoningEffortSchema = z.enum(SUPPORTED_REASONING_EFFORTS);
 
 const responsesRequestSchema = z
   .object({
-    model: z.string().min(1),
+    model: z.string().min(1).default(DEFAULT_MODEL),
     input: z.union([z.string(), z.array(inputMessageSchema)]),
     instructions: z.string().optional(),
     stream: z.boolean().optional().default(false),
     previous_response_id: z.string().min(1).optional(),
-    reasoning_effort: reasoningEffortSchema.optional(),
+    reasoning_effort: reasoningEffortSchema.default(DEFAULT_REASONING_EFFORT),
     tools: z.unknown().optional(),
     text: z.unknown().optional(),
     response_format: z.unknown().optional(),
@@ -139,8 +144,8 @@ export function normalizeResponsesRequest(
       sandboxMode: config.runtimePolicy.sandboxMode,
       approvalPolicy: config.runtimePolicy.approvalPolicy,
       webSearchMode: config.runtimePolicy.webSearchMode,
-      ...(modelAlias.resolved_model ? { model: modelAlias.resolved_model } : {}),
-      ...(parsed.reasoning_effort ? { modelReasoningEffort: parsed.reasoning_effort } : {}),
+      model: modelAlias.resolved_model,
+      modelReasoningEffort: parsed.reasoning_effort,
       ...(options?.workingDirectory ? { workingDirectory: options.workingDirectory } : {}),
     },
   };
