@@ -60,7 +60,7 @@ describe('POST /v1/chat/completions', () => {
       method: 'POST',
       url: '/v1/chat/completions',
       payload: {
-        model: 'codex',
+        model: 'gpt-5.4',
         messages: [
           { role: 'system', content: 'Be concise.' },
           { role: 'user', content: 'Say hello.' },
@@ -73,7 +73,7 @@ describe('POST /v1/chat/completions', () => {
     expect(response.headers['x-codex-thread-id']).toBe('thread-chat-1');
     expect(response.json()).toMatchObject({
       object: 'chat.completion',
-      model: 'codex',
+      model: 'gpt-5.4',
       choices: [
         {
           index: 0,
@@ -134,7 +134,7 @@ describe('POST /v1/chat/completions', () => {
       method: 'POST',
       url: '/v1/chat/completions',
       payload: {
-        model: 'codex',
+        model: 'gpt-5.4',
         stream: true,
         messages: [{ role: 'user', content: 'Say hello.' }],
       },
@@ -177,7 +177,7 @@ describe('POST /v1/chat/completions', () => {
       method: 'POST',
       url: '/v1/chat/completions',
       payload: {
-        model: 'codex',
+        model: 'gpt-5.4',
         messages: [{ role: 'user', content: 'Hi' }],
         tools: [{ type: 'function', function: { name: 'noop' } }],
       },

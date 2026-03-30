@@ -1,4 +1,6 @@
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { parseEnv } from 'node:util';
 
 import packageJson from '../../package.json' with { type: 'json' };
 import { z } from 'zod';
@@ -11,7 +13,6 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(8787),
   LOCAL_BRIDGE_API_KEY: z.string().min(1).optional(),
   BRIDGE_DISABLE_AUTH: z.enum(['true', 'false', '1', '0']).optional(),
-  CODEX_MODEL: z.string().default('gpt-5-codex'),
   SQLITE_PATH: z.string().optional(),
   CODEX_WORKSPACE_ROOT: z.string().optional(),
   BRIDGE_ENABLE_CWD_OVERRIDE: z.enum(['true', 'false', '1', '0']).optional(),
@@ -47,6 +48,19 @@ function isEnabled(rawValue: string | undefined): boolean {
   return rawValue === 'true' || rawValue === '1';
 }
 
+function loadEnvFileValues(envFilePath: string | false | undefined): NodeJS.ProcessEnv {
+  if (envFilePath === false) {
+    return {};
+  }
+
+  const resolvedEnvFilePath = resolve(envFilePath ?? '.env');
+  if (!existsSync(resolvedEnvFilePath)) {
+    return {};
+  }
+
+  return parseEnv(readFileSync(resolvedEnvFilePath, 'utf8'));
+}
+
 function resolveWorkspaceConfig(parsedEnv: z.infer<typeof envSchema>): BridgeConfig['workspace'] {
   const root = resolve(parsedEnv.CODEX_WORKSPACE_ROOT ?? process.cwd());
   const allowedRoots = parsedEnv.BRIDGE_ALLOWED_CWD_ROOTS
@@ -60,8 +74,18 @@ function resolveWorkspaceConfig(parsedEnv: z.infer<typeof envSchema>): BridgeCon
   };
 }
 
-export function loadEnvConfig(env: NodeJS.ProcessEnv = process.env): BridgeConfig {
-  const parsedEnv = envSchema.parse(env);
+export type LoadEnvConfigOptions = {
+  envFilePath?: string | false;
+};
+
+export function loadEnvConfig(
+  env: NodeJS.ProcessEnv = process.env,
+  options?: LoadEnvConfigOptions,
+): BridgeConfig {
+  const parsedEnv = envSchema.parse({
+    ...loadEnvFileValues(options?.envFilePath),
+    ...env,
+  });
   const authEnabled = !isEnabled(parsedEnv.BRIDGE_DISABLE_AUTH);
 
   if (authEnabled && !parsedEnv.LOCAL_BRIDGE_API_KEY) {
@@ -86,6 +110,6 @@ export function loadEnvConfig(env: NodeJS.ProcessEnv = process.env): BridgeConfi
     },
     workspace: resolveWorkspaceConfig(parsedEnv),
     runtimePolicy: createRuntimePolicy(),
-    models: createModelCatalog(parsedEnv.CODEX_MODEL),
+    models: createModelCatalog(),
   };
 }

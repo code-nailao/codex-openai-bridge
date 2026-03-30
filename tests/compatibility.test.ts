@@ -105,11 +105,11 @@ describe('OpenAI SDK compatibility', () => {
     });
 
     const response = await client.responses.create({
-      model: 'codex',
+      model: 'gpt-5.4',
       input: 'Say hello.',
     });
 
     expect(response.output_text).toBe('Hello from SDK responses');
-    expect(response.model).toBe('codex');
+    expect(response.model).toBe('gpt-5.4');
   });
 });

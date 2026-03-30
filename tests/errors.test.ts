@@ -68,7 +68,7 @@ describe('error handling and auth', () => {
       method: 'POST',
       url: '/v1/chat/completions',
       payload: {
-        model: 'codex',
+        model: 'gpt-5.4',
         messages: [{ role: 'user', content: 'Try a write action.' }],
       },
     });
@@ -108,7 +108,7 @@ describe('error handling and auth', () => {
       method: 'POST',
       url: '/v1/responses',
       payload: {
-        model: 'codex',
+        model: 'gpt-5.4',
         input: 'Follow up',
         previous_response_id: 'resp_missing',
       },

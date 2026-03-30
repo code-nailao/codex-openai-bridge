@@ -81,7 +81,7 @@ describe('POST /v1/responses', () => {
       method: 'POST',
       url: '/v1/responses',
       payload: {
-        model: 'codex',
+        model: 'gpt-5.4',
         input: 'Say hello.',
         instructions: 'Be brief.',
       },
@@ -95,7 +95,7 @@ describe('POST /v1/responses', () => {
     expect(body).toMatchObject({
       object: 'response',
       status: 'completed',
-      model: 'codex',
+      model: 'gpt-5.4',
       output_text: 'Hello from the responses API',
       output: [
         {
@@ -158,7 +158,7 @@ describe('POST /v1/responses', () => {
       method: 'POST',
       url: '/v1/responses',
       payload: {
-        model: 'codex',
+        model: 'gpt-5.4',
         input: 'First turn',
       },
     });
@@ -171,7 +171,7 @@ describe('POST /v1/responses', () => {
         'x-session-id': sessionId,
       },
       payload: {
-        model: 'codex',
+        model: 'gpt-5.4',
         input: 'Second turn',
       },
     });
@@ -216,7 +216,7 @@ describe('POST /v1/responses', () => {
       method: 'POST',
       url: '/v1/responses',
       payload: {
-        model: 'codex',
+        model: 'gpt-5.4',
         input: 'Initial turn',
       },
     });
@@ -227,7 +227,7 @@ describe('POST /v1/responses', () => {
       method: 'POST',
       url: '/v1/responses',
       payload: {
-        model: 'codex',
+        model: 'gpt-5.4',
         input: 'Follow-up turn',
         previous_response_id: previousResponseId,
       },
@@ -279,7 +279,7 @@ describe('POST /v1/responses', () => {
       method: 'POST',
       url: '/v1/responses',
       payload: {
-        model: 'codex',
+        model: 'gpt-5.4',
         input: 'Say hello.',
         stream: true,
       },
@@ -323,7 +323,7 @@ describe('POST /v1/responses', () => {
       method: 'POST',
       url: '/v1/responses',
       payload: {
-        model: 'codex',
+        model: 'gpt-5.4',
         input: 'Initial turn',
       },
     });
@@ -331,7 +331,7 @@ describe('POST /v1/responses', () => {
     sessionStore.upsertSession({
       sessionId: 'sess_conflict',
       threadId: 'thread-response-other',
-      modelAlias: 'codex',
+      modelAlias: 'gpt-5.4',
       workspaceCwd: null,
     });
 
@@ -342,7 +342,7 @@ describe('POST /v1/responses', () => {
         'x-session-id': 'sess_conflict',
       },
       payload: {
-        model: 'codex',
+        model: 'gpt-5.4',
         input: 'Conflicting turn',
         previous_response_id: firstBody.id,
       },

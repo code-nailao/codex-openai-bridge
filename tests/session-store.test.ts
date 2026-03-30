@@ -27,7 +27,7 @@ describe('SessionStore', () => {
     firstStore.upsertSession({
       sessionId: 'session-1',
       threadId: 'thread-1',
-      modelAlias: 'codex',
+      modelAlias: 'gpt-5.4',
       workspaceCwd: '/tmp/workspace',
     });
     firstStore.upsertResponse({
@@ -46,7 +46,7 @@ describe('SessionStore', () => {
     expect(session).toMatchObject({
       sessionId: 'session-1',
       threadId: 'thread-1',
-      modelAlias: 'codex',
+      modelAlias: 'gpt-5.4',
       workspaceCwd: '/tmp/workspace',
     });
     expect(typeof session?.updatedAt).toBe('string');

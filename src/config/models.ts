@@ -2,7 +2,7 @@ export type ModelAlias = {
   id: string;
   object: 'model';
   owned_by: 'codex-openai-bridge';
-  resolved_model: string | null;
+  resolved_model: string;
 };
 
 export const DIRECT_MODEL_IDS = [
@@ -14,7 +14,7 @@ export const DIRECT_MODEL_IDS = [
   'gpt-5.1-codex-mini',
 ] as const;
 
-function createModelAlias(id: string, resolvedModel: string | null): ModelAlias {
+function createModelAlias(id: string, resolvedModel: string): ModelAlias {
   return {
     id,
     object: 'model',
@@ -23,12 +23,8 @@ function createModelAlias(id: string, resolvedModel: string | null): ModelAlias 
   };
 }
 
-export function createModelCatalog(codexModel: string): ModelAlias[] {
-  return [
-    createModelAlias('codex', codexModel),
-    createModelAlias('gpt-5', 'gpt-5'),
-    ...DIRECT_MODEL_IDS.map((modelId) => createModelAlias(modelId, modelId)),
-  ];
+export function createModelCatalog(): ModelAlias[] {
+  return DIRECT_MODEL_IDS.map((modelId) => createModelAlias(modelId, modelId));
 }
 
 export function findModelAlias(models: readonly ModelAlias[], alias: string): ModelAlias | null {

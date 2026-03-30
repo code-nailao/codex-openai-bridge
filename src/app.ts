@@ -15,13 +15,16 @@ import { SessionStore } from './store/session-store.js';
 
 export type CreateAppOptions = {
   env?: NodeJS.ProcessEnv;
+  envFilePath?: string | false;
   runtime?: RuntimeLike;
   sessionStore?: SessionStore;
   lockManager?: SessionLockManager;
 };
 
 export async function createApp(options?: CreateAppOptions): Promise<FastifyInstance> {
-  const config = loadEnvConfig(options?.env);
+  const envConfigOptions =
+    options?.envFilePath !== undefined ? { envFilePath: options.envFilePath } : options?.env ? { envFilePath: false as const } : undefined;
+  const config = loadEnvConfig(options?.env, envConfigOptions);
   const app = Fastify({
     logger: false,
   });
