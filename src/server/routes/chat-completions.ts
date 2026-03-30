@@ -87,14 +87,15 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
 
       void (async () => {
         try {
-          const finalText = await streamChatCompletion({
+          const streamedResult = await streamChatCompletion({
             stream,
             events: normalizedStream.events,
             responseId,
             model: normalizedRequest.model.id,
             created,
           });
-          annotateRequestLogResponse(request, finalText, services.config.logging);
+          annotateRequestLogUsage(request, streamedResult.usage);
+          annotateRequestLogResponse(request, streamedResult.text, services.config.logging);
         } catch (error) {
           const errorBody = createStreamErrorBody(error);
           annotateRequestLogError(request, errorBody.error);

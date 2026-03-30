@@ -98,14 +98,15 @@ export function registerResponsesRoute(app: FastifyInstance, services: BridgeSer
 
       void (async () => {
         try {
-          const finalText = await streamResponses({
+          const streamedResult = await streamResponses({
             stream,
             events: normalizedStream.events,
             responseId,
             model: normalizedRequest.model.id,
             createdAt,
           });
-          annotateRequestLogResponse(request, finalText, services.config.logging);
+          annotateRequestLogUsage(request, streamedResult.usage);
+          annotateRequestLogResponse(request, streamedResult.text, services.config.logging);
         } catch (error) {
           const errorBody = createStreamErrorBody(error);
           annotateRequestLogError(request, errorBody.error);
