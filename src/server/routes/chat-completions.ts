@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import { mapUsage, normalizeChatRequest, toChatCompletionResponse } from '../../adapters/chat-adapter.js';
+import { annotateRequestLogContext } from '../../observability/request-logging.js';
 import { readOptionalHeader } from '../request-headers.js';
 import { createRequestAbortController, createStreamErrorBody } from '../route-support.js';
 import { writeSseData } from '../sse/sse-stream.js';
@@ -15,6 +16,9 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
     const workingDirectory = resolveWorkingDirectory(services.config, request);
     const normalizedRequest = normalizeChatRequest(request.body, services.config, {
       workingDirectory,
+    });
+    annotateRequestLogContext(request, {
+      model: normalizedRequest.model.id,
     });
     const requestedSessionId = readOptionalHeader(request, 'x-session-id');
     const sessionId = requestedSessionId ?? createSessionId();

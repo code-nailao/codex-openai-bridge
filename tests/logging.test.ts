@@ -2,10 +2,40 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
-import { BridgeLogger } from '../src/observability/bridge-logger.js';
+import { BridgeLogger, type LoggerLike } from '../src/observability/bridge-logger.js';
 import { FileLogSink, resolveDevLogFilePath } from '../src/observability/file-log-sink.js';
+import { buildTestApp } from './helpers/test-server.js';
+import { FakeRuntime } from './helpers/fake-runtime.js';
+
+const openApps: Array<{ close: () => Promise<unknown> }> = [];
+
+afterEach(async () => {
+  await Promise.all(openApps.splice(0).map((app) => app.close()));
+});
+
+class MemoryLogger implements LoggerLike {
+  public readonly entries: Array<Record<string, unknown>> = [];
+
+  public info(event: string, fields?: Record<string, unknown>) {
+    this.entries.push({
+      level: 'info',
+      event,
+      ...(fields ?? {}),
+    });
+  }
+
+  public error(event: string, fields?: Record<string, unknown>) {
+    this.entries.push({
+      level: 'error',
+      event,
+      ...(fields ?? {}),
+    });
+  }
+
+  public close() {}
+}
 
 describe('dev file logging', () => {
   it('uses the documented log/dev/yy-mm/yy-mm-dd.log layout', () => {
@@ -49,5 +79,50 @@ describe('dev file logging', () => {
       status_code: 200,
       latency_ms: 42,
     });
+  });
+
+  it('logs the effective default model when a request omits model', async () => {
+    const logger = new MemoryLogger();
+    const runtime = new FakeRuntime(
+      {
+        threadId: 'thread-log-default-model',
+        finalResponse: 'OK',
+        items: [],
+        usage: null,
+      },
+      {
+        threadId: 'thread-log-default-model',
+        events: (async function* () {
+          await Promise.resolve();
+          yield* [];
+        })(),
+      },
+    );
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+      },
+      runtime,
+      logger,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: {
+        messages: [{ role: 'user', content: 'Reply with OK.' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(logger.entries).toContainEqual(
+      expect.objectContaining({
+        level: 'info',
+        event: 'http_request',
+        model: 'gpt-5.4',
+        status_code: 200,
+      }),
+    );
   });
 });

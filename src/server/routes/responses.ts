@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import { createResponseObject, normalizeResponsesRequest } from '../../adapters/responses-adapter.js';
+import { annotateRequestLogContext } from '../../observability/request-logging.js';
 import { readOptionalHeader } from '../request-headers.js';
 import { createRequestAbortController, createStreamErrorBody } from '../route-support.js';
 import { resolveSessionContinuation } from '../session-resolution.js';
@@ -16,6 +17,9 @@ export function registerResponsesRoute(app: FastifyInstance, services: BridgeSer
     const workingDirectory = resolveWorkingDirectory(services.config, request);
     const normalizedRequest = normalizeResponsesRequest(request.body, services.config, {
       workingDirectory,
+    });
+    annotateRequestLogContext(request, {
+      model: normalizedRequest.model.id,
     });
     const requestedSessionId = readOptionalHeader(request, 'x-session-id');
     const resolvedSession = resolveSessionContinuation({
