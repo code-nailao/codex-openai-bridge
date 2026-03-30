@@ -108,7 +108,7 @@ npm run dev
 - `PORT`：默认 `8787`
 - `LOCAL_BRIDGE_API_KEY`：默认鉴权密钥；鉴权开启时必填
 - `SQLITE_PATH`：SQLite 存储文件路径
-- `CODEX_WORKSPACE_ROOT`：默认工作目录根
+- `CODEX_WORKSPACE_ROOT`：可选工作目录根；缺省时落到 `.codex-openai-bridge/workspaces/default-chat`
 - `BRIDGE_ENABLE_CWD_OVERRIDE`：是否允许 `x-codex-cwd`
 - `BRIDGE_ALLOWED_CWD_ROOTS`：可选 cwd allowlist，逗号分隔
 - `BRIDGE_DISABLE_AUTH=true`：仅限本地受控环境调试时关闭鉴权
@@ -178,7 +178,7 @@ curl http://127.0.0.1:8787/v1/responses \
 - 默认要求 `Authorization: Bearer <LOCAL_BRIDGE_API_KEY>`
 - 默认 `sandbox=read-only` 与 `approval=never`
 - 默认不记录 prompt 正文，只记录最小化运维日志
-- `CODEX_WORKSPACE_ROOT` 固定工作目录；`x-codex-cwd` 默认关闭
+- 默认工作目录落在隔离子目录 `.codex-openai-bridge/workspaces/default-chat`；`x-codex-cwd` 默认关闭
 - 这更准确地说是本地兼容桥，不是面向公网的通用反代；一旦暴露到 localhost 之外，风险会显著上升
 - 如果 Codex 仍触发审批事件，桥接层返回明确错误，而不是把 HTTP 请求挂死
 

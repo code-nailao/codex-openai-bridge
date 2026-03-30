@@ -14,6 +14,7 @@
 - 移除桥接层 `codex` 与 `gpt-5` 模型别名；请求必须直接传支持的真实模型 id
 - 同步更新 README、development guide 与 roadmap 中的模型与配置说明
 - 为 `chat/completions` 与 `responses` 收口默认请求语义：缺省 `model` 自动补 `gpt-5.4`，缺省 `reasoning_effort` 自动补 `medium`
+- 缺省 `CODEX_WORKSPACE_ROOT` 调整为隔离子目录 `.codex-openai-bridge/workspaces/default-chat`，更适合纯对话型本地 sidecar
 
 ## [0.1.0] - 2026-03-30
 

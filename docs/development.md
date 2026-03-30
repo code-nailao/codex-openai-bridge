@@ -122,7 +122,7 @@ CLI 启动入口默认读取仓库根目录 `.env`；显式传入 `env` 的 prog
 - `LOCAL_BRIDGE_API_KEY`：鉴权开启时必填
 - `BRIDGE_DISABLE_AUTH`：仅限本地调试时关闭鉴权
 - `SQLITE_PATH`：SQLite 数据文件
-- `CODEX_WORKSPACE_ROOT`：默认工作目录根
+- `CODEX_WORKSPACE_ROOT`：可选工作目录根；缺省时落到 `.codex-openai-bridge/workspaces/default-chat`
 - `BRIDGE_ENABLE_CWD_OVERRIDE`：是否允许 `x-codex-cwd`
 - `BRIDGE_ALLOWED_CWD_ROOTS`：cwd allowlist
 
@@ -131,6 +131,7 @@ CLI 启动入口默认读取仓库根目录 `.env`；显式传入 `env` 的 prog
 - 配置校验失败要尽早启动失败
 - 不把环境变量读取下沉到 adapter / route 细节
 - workspace override 必须显式开启，并受 allowlist 约束
+- 缺省 workspace 应落在隔离子目录，避免 bridge 默认读取仓库根或业务项目根
 - 模型选择默认由桥接层补为 `gpt-5.4`，客户端也可以显式覆盖
 - `reasoning_effort` 默认由桥接层补为 `medium`，客户端也可以显式覆盖
 
