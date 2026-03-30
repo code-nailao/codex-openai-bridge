@@ -5,7 +5,7 @@ export type ModelAlias = {
   resolved_model: string | null;
 };
 
-const DIRECT_MODEL_IDS = [
+export const DIRECT_MODEL_IDS = [
   'gpt-5.4',
   'gpt-5.3-codex',
   'gpt-5.2',
@@ -29,4 +29,8 @@ export function createModelCatalog(codexModel: string): ModelAlias[] {
     createModelAlias('gpt-5', null),
     ...DIRECT_MODEL_IDS.map((modelId) => createModelAlias(modelId, modelId)),
   ];
+}
+
+export function findModelAlias(models: readonly ModelAlias[], alias: string): ModelAlias | null {
+  return models.find((candidate) => candidate.id === alias) ?? null;
 }

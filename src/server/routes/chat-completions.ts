@@ -1,24 +1,19 @@
 import type { FastifyInstance } from 'fastify';
 
 import { mapUsage, normalizeChatRequest, toChatCompletionResponse } from '../../adapters/chat-adapter.js';
-import type { RuntimeRunResult } from '../../contracts/runtime.js';
 import { normalizeRuntimeStream } from '../../runtime/normalized-stream.js';
-import { createApprovalRequiredError, createInternalServerError } from '../errors/bridge-error.js';
-import { mapErrorToResponse, normalizeError } from '../errors/error-mapper.js';
 import { readOptionalHeader } from '../request-headers.js';
+import {
+  createRequestAbortController,
+  createStreamErrorBody,
+  ensureRuntimeThreadId,
+  setSessionResponseHeaders,
+} from '../route-support.js';
 import { createSseStream, startHeartbeat, writeSseData } from '../sse/sse-stream.js';
 import { streamChatCompletion } from '../sse/chat-stream.js';
 import type { BridgeServices } from '../bridge-context.js';
 import { resolveWorkingDirectory } from '../workspace.js';
 import { createSessionId } from '../../utils/ids.js';
-
-function ensureThreadId(result: Pick<RuntimeRunResult, 'threadId'>): string {
-  if (!result.threadId) {
-    throw createInternalServerError('The Codex runtime completed without a thread id.');
-  }
-
-  return result.threadId;
-}
 
 export function registerChatCompletionsRoute(app: FastifyInstance, services: BridgeServices) {
   app.post('/v1/chat/completions', async (request, reply) => {
@@ -33,10 +28,7 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
       const runtime = services.getRuntime();
       const existingSession = services.sessionStore.getSession(sessionId);
       const threadId = existingSession?.threadId;
-      const abortController = new AbortController();
-      request.raw.once('close', () => {
-        abortController.abort();
-      });
+      const abortController = createRequestAbortController(request);
 
       if (!normalizedRequest.stream) {
         const result = await runtime.run({
@@ -45,7 +37,7 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
           signal: abortController.signal,
           ...(threadId ? { threadId } : {}),
         });
-        const resolvedThreadId = ensureThreadId(result);
+        const resolvedThreadId = ensureRuntimeThreadId(result.threadId);
 
         services.sessionStore.upsertSession({
           sessionId,
@@ -54,8 +46,10 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
           workspaceCwd: workingDirectory,
         });
 
-        reply.header('x-session-id', sessionId);
-        reply.header('x-codex-thread-id', resolvedThreadId);
+        setSessionResponseHeaders(reply, {
+          sessionId,
+          threadId: resolvedThreadId,
+        });
 
         return toChatCompletionResponse({
           model: normalizedRequest.modelAlias.id,
@@ -79,8 +73,10 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
         workspaceCwd: workingDirectory,
       });
 
-      reply.header('x-session-id', sessionId);
-      reply.header('x-codex-thread-id', normalizedStream.threadId);
+      setSessionResponseHeaders(reply, {
+        sessionId,
+        threadId: normalizedStream.threadId,
+      });
       const stream = createSseStream(reply);
       const stopHeartbeat = startHeartbeat(stream);
       const created = Math.floor(Date.now() / 1000);
@@ -96,12 +92,7 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
             created,
           });
         } catch (error) {
-          const normalizedError = normalizeError(error);
-          if (normalizedError.code === 'approval_required') {
-            writeSseData(stream, createApprovalRequiredError(normalizedError.message).toResponseBody());
-          } else {
-            writeSseData(stream, mapErrorToResponse(error).body);
-          }
+          writeSseData(stream, createStreamErrorBody(error));
         } finally {
           stopHeartbeat();
           stream.end();

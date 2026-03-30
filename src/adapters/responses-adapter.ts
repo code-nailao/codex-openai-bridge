@@ -2,7 +2,7 @@ import type { ThreadOptions, Usage } from '@openai/codex-sdk';
 import { z } from 'zod';
 
 import type { BridgeConfig } from '../config/env.js';
-import type { ModelAlias } from '../config/models.js';
+import { findModelAlias, type ModelAlias } from '../config/models.js';
 import { createInvalidRequestError, createModelNotFoundError, createUnsupportedFeatureError } from '../server/errors/bridge-error.js';
 import { createResponseId } from '../utils/ids.js';
 
@@ -80,7 +80,7 @@ function extractText(content: string | Array<{ type: 'text' | 'input_text'; text
 }
 
 function resolveModelAlias(config: BridgeConfig, alias: string): ModelAlias {
-  const modelAlias = config.models.find((candidate) => candidate.id === alias);
+  const modelAlias = findModelAlias(config.models, alias);
   if (!modelAlias) {
     throw createModelNotFoundError(alias);
   }
