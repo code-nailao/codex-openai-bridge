@@ -1,11 +1,11 @@
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 
 import packageJson from '../../package.json' with { type: 'json' };
 import { z } from 'zod';
 
-import { createModelCatalog, type ModelAlias } from './models.js';
+import { createModelCatalog, type SupportedModel } from './models.js';
 import { createRuntimePolicy, type RuntimePolicy } from './runtime-policy.js';
 
 const envSchema = z.object({
@@ -41,9 +41,10 @@ export type BridgeConfig = {
     root: string;
     allowHeaderOverride: boolean;
     allowedRoots: string[];
+    provisionIfMissing: boolean;
   };
   runtimePolicy: RuntimePolicy;
-  models: ModelAlias[];
+  models: SupportedModel[];
 };
 
 function isEnabled(rawValue: string | undefined): boolean {
@@ -63,11 +64,21 @@ function loadEnvFileValues(envFilePath: string | false | undefined): NodeJS.Proc
   return parseEnv(readFileSync(resolvedEnvFilePath, 'utf8'));
 }
 
-function resolveWorkspaceConfig(parsedEnv: z.infer<typeof envSchema>): BridgeConfig['workspace'] {
-  const root = resolve(parsedEnv.CODEX_WORKSPACE_ROOT ?? DEFAULT_WORKSPACE_ROOT);
-  if (!parsedEnv.CODEX_WORKSPACE_ROOT) {
-    mkdirSync(root, { recursive: true });
+function shouldLoadEnvFile(env: NodeJS.ProcessEnv, options?: LoadEnvConfigOptions): boolean {
+  if (options?.envFilePath === false) {
+    return false;
   }
+
+  if (typeof options?.envFilePath === 'string') {
+    return true;
+  }
+
+  return env === process.env;
+}
+
+function resolveWorkspaceConfig(parsedEnv: z.infer<typeof envSchema>): BridgeConfig['workspace'] {
+  const provisionIfMissing = !parsedEnv.CODEX_WORKSPACE_ROOT;
+  const root = resolve(parsedEnv.CODEX_WORKSPACE_ROOT ?? DEFAULT_WORKSPACE_ROOT);
 
   const allowedRoots = parsedEnv.BRIDGE_ALLOWED_CWD_ROOTS
     ? parsedEnv.BRIDGE_ALLOWED_CWD_ROOTS.split(',').map((entry) => resolve(entry.trim())).filter(Boolean)
@@ -77,6 +88,7 @@ function resolveWorkspaceConfig(parsedEnv: z.infer<typeof envSchema>): BridgeCon
     root,
     allowHeaderOverride: isEnabled(parsedEnv.BRIDGE_ENABLE_CWD_OVERRIDE),
     allowedRoots,
+    provisionIfMissing,
   };
 }
 
@@ -89,7 +101,7 @@ export function loadEnvConfig(
   options?: LoadEnvConfigOptions,
 ): BridgeConfig {
   const parsedEnv = envSchema.parse({
-    ...loadEnvFileValues(options?.envFilePath),
+    ...(shouldLoadEnvFile(env, options) ? loadEnvFileValues(options?.envFilePath) : {}),
     ...env,
   });
   const authEnabled = !isEnabled(parsedEnv.BRIDGE_DISABLE_AUTH);

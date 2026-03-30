@@ -3,7 +3,7 @@ import { loadEnvConfig } from './config/env.js';
 
 async function main() {
   const config = loadEnvConfig();
-  const app = await createApp();
+  const app = await createApp({ config });
 
   try {
     await app.listen({

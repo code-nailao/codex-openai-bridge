@@ -8,9 +8,11 @@ import { loadEnvConfig } from '../src/config/env.js';
 import { buildTestApp } from './helpers/test-server.js';
 
 const openApps: Array<{ close: () => Promise<unknown> }> = [];
+const originalCwd = process.cwd();
 
 afterEach(async () => {
   await Promise.all(openApps.splice(0).map((app) => app.close()));
+  process.chdir(originalCwd);
 });
 
 describe('loadEnvConfig', () => {
@@ -79,10 +81,22 @@ describe('loadEnvConfig', () => {
     expect(config.workspace.root).toBe(resolve('./custom-workspace'));
     expect(config.workspace.allowedRoots).toEqual([resolve('./custom-workspace')]);
   });
+
+  it('does not implicitly load .env when the caller already provided an env object', () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'codex-openai-bridge-cwd-'));
+    writeFileSync(join(tempDir, '.env'), 'HOST=127.0.0.9\n');
+    process.chdir(tempDir);
+
+    const config = loadEnvConfig({
+      LOCAL_BRIDGE_API_KEY: 'test-key',
+    });
+
+    expect(config.server.host).toBe('127.0.0.1');
+  });
 });
 
 describe('GET /v1/models', () => {
-  it('returns the local model aliases without probing upstream', async () => {
+  it('returns the supported local models without probing upstream', async () => {
     const app = await buildTestApp({
       env: {
         BRIDGE_DISABLE_AUTH: 'true',

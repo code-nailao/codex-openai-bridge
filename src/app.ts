@@ -1,6 +1,8 @@
+import { mkdirSync } from 'node:fs';
+
 import Fastify, { type FastifyInstance } from 'fastify';
 
-import { loadEnvConfig } from './config/env.js';
+import { loadEnvConfig, type BridgeConfig } from './config/env.js';
 import type { RuntimeLike } from './contracts/runtime.js';
 import { CodexRuntime } from './runtime/codex-runtime.js';
 import { enforceRequestAuth } from './server/auth.js';
@@ -14,6 +16,7 @@ import { SessionLockManager } from './store/locks.js';
 import { SessionStore } from './store/session-store.js';
 
 export type CreateAppOptions = {
+  config?: BridgeConfig;
   env?: NodeJS.ProcessEnv;
   envFilePath?: string | false;
   runtime?: RuntimeLike;
@@ -22,9 +25,16 @@ export type CreateAppOptions = {
 };
 
 export async function createApp(options?: CreateAppOptions): Promise<FastifyInstance> {
-  const envConfigOptions =
-    options?.envFilePath !== undefined ? { envFilePath: options.envFilePath } : options?.env ? { envFilePath: false as const } : undefined;
-  const config = loadEnvConfig(options?.env, envConfigOptions);
+  const config =
+    options?.config ??
+    loadEnvConfig(
+      options?.env,
+      options?.envFilePath !== undefined ? { envFilePath: options.envFilePath } : undefined,
+    );
+  if (config.workspace.provisionIfMissing) {
+    mkdirSync(config.workspace.root, { recursive: true });
+  }
+
   const app = Fastify({
     logger: false,
   });
