@@ -18,6 +18,11 @@ export function writeSseData(stream: SseStream, payload: unknown) {
   stream.write(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
+export function writeNamedSseEvent(stream: SseStream, eventName: string, payload: unknown) {
+  stream.write(`event: ${eventName}\n`);
+  stream.write(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
 export function writeSseComment(stream: SseStream, comment: string) {
   stream.write(`: ${comment}\n\n`);
 }

@@ -8,6 +8,7 @@ import type { BridgeServices } from './server/bridge-context.js';
 import { mapErrorToResponse } from './server/errors/error-mapper.js';
 import { registerChatCompletionsRoute } from './server/routes/chat-completions.js';
 import { registerModelsRoute } from './server/routes/models.js';
+import { registerResponsesRoute } from './server/routes/responses.js';
 import { SessionLockManager } from './store/locks.js';
 import { SessionStore } from './store/session-store.js';
 
@@ -68,6 +69,7 @@ export async function createApp(options?: CreateAppOptions): Promise<FastifyInst
 
   registerModelsRoute(app, config);
   registerChatCompletionsRoute(app, services);
+  registerResponsesRoute(app, services);
 
   return app;
 }
