@@ -146,10 +146,10 @@ git diff --check
 代码改动默认要覆盖：
 
 ```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
+npm run lint
+npm run typecheck
+npm test
+npm run build
 ```
 
 如果涉及 SSE、session 恢复、错误映射或兼容层行为变更，必须补对应契约测试或回归测试。

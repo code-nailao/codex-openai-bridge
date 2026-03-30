@@ -2,15 +2,20 @@
 
 ## 当前状态说明
 
-当前仓库仍处于 **documentation bootstrap** 阶段。
+仓库已经完成 `0.1.0` 的 v1 基线实现。
 
-这意味着：
+当前可用内容包括：
 
-- 已锁定项目定位、边界、v1 范围与长期维护约束
-- 尚未创建 `package.json`、运行时代码、测试代码或服务脚手架
-- 本文描述的是 **未来实现阶段必须遵守的工程约束**，不是“当前代码已经实现的事实”
+- `POST /v1/chat/completions`
+- `POST /v1/responses`
+- `GET /v1/models`
+- `GET /healthz`
+- SQLite session / response store
+- SSE streaming
+- OpenAI-style error mapping
+- OpenAI SDK `baseURL` smoke test
 
-如果你准备开始写代码，请先阅读：
+如果你准备继续开发，请先阅读：
 
 - [`../README.md`](../README.md)
 - [`../AGENTS.md`](../AGENTS.md)
@@ -18,98 +23,113 @@
 
 ## 开发基线
 
-推荐把以下版本视为 v1 scaffold 的起步基线：
+推荐把以下版本作为当前仓库的实现基线：
 
 - Node.js `22.x`
-- pnpm `10.x`
+- npm `10.x` 或兼容版本
 - Codex CLI `>= 0.114.0`
-- SQLite `3.51.x` 或兼容版本
+- SQLite `3.x` 兼容运行时
 
-v1 的目标技术栈已经锁定为：
+当前技术栈：
 
 - Node.js
 - TypeScript
 - Fastify
 - `@openai/codex-sdk`
-- SQLite
+- `better-sqlite3`
+- Vitest
+- `openai` SDK（兼容性测试）
 
-## 目标目录结构
-
-本轮不创建代码目录，但后续实现建议采用以下结构：
+## 当前目录结构
 
 ```text
-server/
-  routes/
-  auth/
-  sse/
-  errors/
-runtime/
-  codex-runtime.ts
-  thread-manager.ts
-adapters/
-  chat-adapter.ts
-  responses-adapter.ts
-  event-normalizer.ts
-store/
-  session-store.ts
-  locks.ts
-config/
-  models.ts
-  runtime-policy.ts
-  env.ts
-tests/
+src/
+  adapters/
+    chat-adapter.ts
+    event-normalizer.ts
+    responses-adapter.ts
+    usage.ts
+  config/
+    env.ts
+    models.ts
+    runtime-policy.ts
   contracts/
-  integration/
-  fixtures/
+    runtime.ts
+  runtime/
+    codex-runtime.ts
+    normalized-stream.ts
+    thread-manager.ts
+  server/
+    errors/
+    routes/
+    sse/
+    auth.ts
+    bridge-context.ts
+    request-headers.ts
+    session-resolution.ts
+    workspace.ts
+  store/
+    locks.ts
+    session-store.ts
+  utils/
+    ids.ts
+tests/
+  *.test.ts
+  helpers/
+  runtime/
 ```
 
-原则：
+职责分层：
 
-- `server/` 只处理 HTTP 协议与边界
-- `runtime/` 只处理本地 Codex 调用与 thread 生命周期
-- `adapters/` 只处理 OpenAI-compatible 语义映射
-- `store/` 只处理状态持久化与并发控制
+- `server/` 只处理 HTTP 协议边界、鉴权、SSE、错误与 session 解析
+- `runtime/` 只处理本地 Codex thread 生命周期
+- `adapters/` 只处理 OpenAI-compatible 请求与响应映射
+- `store/` 只处理 SQLite 持久化与并发控制
 - `config/` 只处理配置与运行策略
 
-## 本地开发模式
+## 本地开发
 
-v1 实现后，推荐把开发模式分成三层：
+### 安装
 
-### 1. Docs mode
+```bash
+npm install
+```
 
-- 维护 README、development、roadmap、changelog
-- 不假设服务可运行
-- 仅做 docs-only 验证
+### 启动开发服务
 
-### 2. Scaffold mode
+```bash
+export LOCAL_BRIDGE_API_KEY="replace-me"
+npm run dev
+```
 
-- 初始化 TypeScript、Fastify、SQLite 与测试基础设施
-- 先打通 `GET /healthz` 与最小配置加载
-- 不急于一次性实现全部 API surface
+### 构建
 
-### 3. Runtime integration mode
-
-- 接入 `@openai/codex-sdk`
-- 验证 thread 创建、恢复、取消、usage 抽取
-- 再逐步补 `chat/completions` 与 `responses`
+```bash
+npm run build
+npm start
+```
 
 ## 配置策略
 
-以下配置语义在实现前就已经锁定：
+配置统一收敛在 `src/config/env.ts`，业务逻辑内部不允许零散读取 `process.env`。
 
-- 默认监听：`127.0.0.1:8787`
-- 默认鉴权：`Authorization: Bearer <LOCAL_BRIDGE_API_KEY>`
-- 默认 workspace 根：`CODEX_WORKSPACE_ROOT`
-- 可选管理员头：`x-codex-cwd`，默认关闭
-- 默认 sandbox：`read-only`
-- 默认 approval：`never`
-- 模型别名由本地配置维护，不做远端探测
+当前主要配置项：
 
-实现配置层时，应遵守：
+- `HOST`：默认 `127.0.0.1`
+- `PORT`：默认 `8787`
+- `LOCAL_BRIDGE_API_KEY`：鉴权开启时必填
+- `BRIDGE_DISABLE_AUTH`：仅限本地调试时关闭鉴权
+- `CODEX_MODEL`：`codex` 别名对应的真实模型
+- `SQLITE_PATH`：SQLite 数据文件
+- `CODEX_WORKSPACE_ROOT`：默认工作目录根
+- `BRIDGE_ENABLE_CWD_OVERRIDE`：是否允许 `x-codex-cwd`
+- `BRIDGE_ALLOWED_CWD_ROOTS`：cwd allowlist
 
-- 环境变量统一在 `config/env.ts` 收敛
-- 不允许在业务逻辑内部零散读取 `process.env`
-- 配置校验失败时尽早启动失败，不延迟到请求期
+原则：
+
+- 配置校验失败要尽早启动失败
+- 不把环境变量读取下沉到 adapter / route 细节
+- workspace override 必须显式开启，并受 allowlist 约束
 
 ## 运行时原则
 
@@ -126,23 +146,18 @@ HTTP 层负责：
 
 HTTP 层不负责：
 
-- 直接拼接 Codex thread 状态
-- 直接访问 SQLite 细节
-- 直接决定 OpenAI-compatible 业务语义
+- 直接管理 Codex thread 细节
+- 直接暴露 SQLite schema
+- 在 route 内手写 OpenAI 协议对象拼装之外的复杂业务逻辑
 
 ### CodexRuntime
 
 运行时层负责：
 
 - 启动 / 恢复本地 Codex thread
-- 提供 `run()` 与 `runStreamed()` 能力
-- 处理取消、超时、usage 抽取
-- 把底层事件交给 adapter normalizer
-
-运行时层不负责：
-
-- 直接生成 OpenAI 响应 JSON
-- 直接控制 HTTP 生命周期
+- 提供 `run()` 与 `runStreamed()`
+- 处理取消信号透传
+- 统一返回 `threadId`、`usage` 与底层事件流
 
 ### SessionStore
 
@@ -151,37 +166,38 @@ HTTP 层不负责：
 - 保存 `x-session-id -> codex_thread_id`
 - 保存 `response_id -> thread_id/session_id`
 - 保存模型别名、workspace、最近活动时间
-- 对同一 session 加锁，避免 thread 并发续写
+- 为同一 session 串行化请求，避免 thread 并发续写
 
 ## 接口与兼容约束
 
-v1 目标接口：
-
-- `POST /v1/chat/completions`
-- `POST /v1/responses`
-- `GET /v1/models`
-- `GET /healthz`
-
-### chat/completions
+### `POST /v1/chat/completions`
 
 - 支持 `model`、`messages`、`stream`、`max_completion_tokens`、`reasoning_effort`
-- v1 只支持文本内容
-- 未实现字段如 `tools`、`audio`、非文本 content、strict JSON schema 应返回 `422 unsupported_feature`
-- `chat/completions` 不依赖隐藏 thread 记忆保证正确性
+- 只支持文本内容
+- 对 `tools`、`audio`、`response_format` 等未实现字段返回 `422 unsupported_feature`
+- 优先保持客户端消息历史驱动语义，不依赖隐藏 thread 记忆保证正确性
 
-### responses
+### `POST /v1/responses`
 
 - 支持 `model`、`input`、`instructions`、`stream`、`previous_response_id`
-- `previous_response_id` 或 `x-session-id` 命中时恢复同一 thread
+- `previous_response_id` 与 `x-session-id` 可恢复已有 thread
 - 两者冲突时返回 `409 session_conflict`
-- `responses` 是 thread 续接的主路径
+- `responses` 是 thread 续接主路径
+
+### `GET /v1/models`
+
+- 返回本地桥接允许的模型别名
+- 不做远端探测
+
+### `GET /healthz`
+
+- 返回最小健康信息
+- 不触发真实推理
 
 ## SSE 处理原则
 
-流式设计在实现时必须遵守：
-
-- `chat/completions` 输出 `chat.completion.chunk`
-- `responses` 输出文本相关常用事件子集
+- `chat/completions` 输出 `chat.completion.chunk` 与 `[DONE]`
+- `responses` 输出 `response.created`、`response.output_text.delta`、`response.output_text.done`、`response.completed`
 - 每 `15s` 发送 heartbeat，降低代理断连风险
 - 客户端断开连接时，通过 `AbortController` 取消底层 run
 - 流式输出是消息片段级 diff，不承诺 token 级逐字流
@@ -201,20 +217,21 @@ v1 目标接口：
 }
 ```
 
-推荐映射：
+当前映射约束：
 
 - Codex 启动失败 -> `503`
 - 上游超时 -> `504`
 - 上游 rate limit -> `429`
 - approval required -> `409`
 - 不支持字段 -> `422`
-- session 冲突 / session 占用 -> `409`
+- session 冲突 -> `409`
+- 无鉴权 -> `401`
 
 不要把底层错误原样透传给客户端；需要先收敛为稳定的桥接层契约。
 
 ## 日志原则
 
-默认日志只记录：
+默认日志只应记录：
 
 - `request_id`
 - `session_id`
@@ -229,43 +246,38 @@ v1 目标接口：
 - 完整响应正文
 - 未脱敏环境变量
 
-需要详细日志时，应通过显式 debug 开关开启，而不是默认扩大采集范围。
-
 ## 测试门槛
 
-### docs-only 阶段
-
-至少执行：
+文档改动至少执行：
 
 ```bash
 git diff --check
 ```
 
-### v1 scaffold 之后
-
-默认执行：
+代码改动默认执行：
 
 ```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
+npm run lint
+npm run typecheck
+npm test
+npm run build
 ```
 
-建议把测试拆成：
+建议继续保持以下测试覆盖：
 
 - adapter contract tests
 - session store tests
 - SSE streaming tests
 - error mapping tests
-- compatibility smoke tests with OpenAI SDK baseURL mode
+- OpenAI SDK compatibility tests
 
-## Git 与交付纪律
+## 下一阶段建议
 
-- 默认使用 `codex/*` 特性分支
-- 小功能一个 commit，一个 push
-- 文档变更与行为变更不要混在同一个 commit
-- 完成功能前先更新 roadmap，再写实现
-- 发布前必须同步 `VERSION` 与 `CHANGELOG.md`
+v1 已经可运行，后续增强建议严格放在 `Next` 范围推进：
 
-详细协作约束见：[`../AGENTS.md`](../AGENTS.md)。
+- richer event surface
+- structured output
+- tool calling
+- multimodal
+- `codex app-server` 优化路径
+- observability hardening
