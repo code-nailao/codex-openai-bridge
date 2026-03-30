@@ -7,6 +7,7 @@ import { enforceRequestAuth } from './server/auth.js';
 import type { BridgeServices } from './server/bridge-context.js';
 import { mapErrorToResponse } from './server/errors/error-mapper.js';
 import { registerChatCompletionsRoute } from './server/routes/chat-completions.js';
+import { registerHealthzRoute } from './server/routes/healthz.js';
 import { registerModelsRoute } from './server/routes/models.js';
 import { registerResponsesRoute } from './server/routes/responses.js';
 import { SessionLockManager } from './store/locks.js';
@@ -57,16 +58,7 @@ export async function createApp(options?: CreateAppOptions): Promise<FastifyInst
     }
   });
 
-  app.get('/healthz', () => ({
-    status: 'ok',
-    service: config.service.name,
-    version: config.service.version,
-    checks: {
-      sqlite: 'unknown',
-      codex_cli: 'unknown',
-    },
-  }));
-
+  registerHealthzRoute(app, config);
   registerModelsRoute(app, config);
   registerChatCompletionsRoute(app, services);
   registerResponsesRoute(app, services);

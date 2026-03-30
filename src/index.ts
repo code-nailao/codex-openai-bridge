@@ -1,13 +1,15 @@
 import { createApp } from './app.js';
-
-const host = process.env.HOST ?? '127.0.0.1';
-const port = Number(process.env.PORT ?? '8787');
+import { loadEnvConfig } from './config/env.js';
 
 async function main() {
+  const config = loadEnvConfig();
   const app = await createApp();
 
   try {
-    await app.listen({ host, port });
+    await app.listen({
+      host: config.server.host,
+      port: config.server.port,
+    });
   } catch (error) {
     app.log.error(error);
     process.exitCode = 1;
