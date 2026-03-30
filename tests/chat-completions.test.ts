@@ -1,4 +1,6 @@
 import type { AgentMessageItem, ThreadEvent } from '@openai/codex-sdk';
+import { resolve } from 'node:path';
+
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { buildTestApp } from './helpers/test-server.js';
@@ -67,6 +69,7 @@ describe('POST /v1/chat/completions', () => {
     expect(runtime.runCalls[0]?.threadOptions).toMatchObject({
       model: 'gpt-5.4',
       modelReasoningEffort: 'medium',
+      workingDirectory: resolve('.codex-openai-bridge/workspaces/default-chat'),
     });
   });
 

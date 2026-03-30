@@ -6,4 +6,5 @@ coverage/
 *.sqlite-shm
 *.sqlite-wal
 .env
+.codex-openai-bridge/
 .DS_Store

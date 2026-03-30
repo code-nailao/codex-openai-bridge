@@ -1,6 +1,6 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -15,9 +15,14 @@ afterEach(async () => {
 
 describe('loadEnvConfig', () => {
   it('applies documented defaults when auth is configured', () => {
-    const config = loadEnvConfig({
-      LOCAL_BRIDGE_API_KEY: 'test-key',
-    });
+    const config = loadEnvConfig(
+      {
+        LOCAL_BRIDGE_API_KEY: 'test-key',
+      },
+      {
+        envFilePath: false,
+      },
+    );
 
     expect(config.server.host).toBe('127.0.0.1');
     expect(config.server.port).toBe(8787);
@@ -25,6 +30,8 @@ describe('loadEnvConfig', () => {
     expect(config.auth.apiKey).toBe('test-key');
     expect(config.runtimePolicy.sandboxMode).toBe('read-only');
     expect(config.runtimePolicy.approvalPolicy).toBe('never');
+    expect(config.workspace.root).toBe(resolve('.codex-openai-bridge/workspaces/default-chat'));
+    expect(config.workspace.allowedRoots).toEqual([resolve('.codex-openai-bridge/workspaces/default-chat')]);
     expect(config.models.map((model) => model.id)).toEqual([
       'gpt-5.4',
       'gpt-5.3-codex',
@@ -56,6 +63,21 @@ describe('loadEnvConfig', () => {
     expect(config.server.port).toBe(9000);
     expect(config.auth.enabled).toBe(true);
     expect(config.auth.apiKey).toBe('override-key');
+  });
+
+  it('uses an explicit CODEX_WORKSPACE_ROOT when provided', () => {
+    const config = loadEnvConfig(
+      {
+        LOCAL_BRIDGE_API_KEY: 'test-key',
+        CODEX_WORKSPACE_ROOT: './custom-workspace',
+      },
+      {
+        envFilePath: false,
+      },
+    );
+
+    expect(config.workspace.root).toBe(resolve('./custom-workspace'));
+    expect(config.workspace.allowedRoots).toEqual([resolve('./custom-workspace')]);
   });
 });
 

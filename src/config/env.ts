@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 
@@ -18,6 +18,8 @@ const envSchema = z.object({
   BRIDGE_ENABLE_CWD_OVERRIDE: z.enum(['true', 'false', '1', '0']).optional(),
   BRIDGE_ALLOWED_CWD_ROOTS: z.string().optional(),
 });
+
+const DEFAULT_WORKSPACE_ROOT = '.codex-openai-bridge/workspaces/default-chat';
 
 export type BridgeConfig = {
   service: {
@@ -62,7 +64,11 @@ function loadEnvFileValues(envFilePath: string | false | undefined): NodeJS.Proc
 }
 
 function resolveWorkspaceConfig(parsedEnv: z.infer<typeof envSchema>): BridgeConfig['workspace'] {
-  const root = resolve(parsedEnv.CODEX_WORKSPACE_ROOT ?? process.cwd());
+  const root = resolve(parsedEnv.CODEX_WORKSPACE_ROOT ?? DEFAULT_WORKSPACE_ROOT);
+  if (!parsedEnv.CODEX_WORKSPACE_ROOT) {
+    mkdirSync(root, { recursive: true });
+  }
+
   const allowedRoots = parsedEnv.BRIDGE_ALLOWED_CWD_ROOTS
     ? parsedEnv.BRIDGE_ALLOWED_CWD_ROOTS.split(',').map((entry) => resolve(entry.trim())).filter(Boolean)
     : [root];
