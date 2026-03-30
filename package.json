@@ -1,0 +1,44 @@
+{
+  "name": "codex-openai-bridge",
+  "version": "0.1.0",
+  "description": "OpenAI-compatible localhost sidecar for local Codex runtimes.",
+  "type": "module",
+  "private": false,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src tests --ext .ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@openai/codex-sdk": "^0.117.0",
+    "better-sqlite3": "^12.8.0",
+    "fastify": "^5.8.4",
+    "zod": "^4.3.6",
+    "fastify-sse-v2": "^4.2.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.38.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^24.7.2",
+    "eslint": "^9.38.0",
+    "globals": "^16.4.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.2",
+    "vitest": "^4.1.2"
+  }
+}
