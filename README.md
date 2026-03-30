@@ -57,6 +57,17 @@
 - 错误体统一采用 OpenAI 风格：`{ error: { message, type, code, param? } }`
 - 所有成功响应回写 `x-session-id` 与 `x-codex-thread-id`
 
+### 当前支持的模型 id
+
+- `codex`：桥接层别名，解析到启动时配置的 `CODEX_MODEL`
+- `gpt-5`
+- `gpt-5.4`
+- `gpt-5.3-codex`
+- `gpt-5.2`
+- `gpt-5.2-codex`
+- `gpt-5.1-codex-max`
+- `gpt-5.1-codex-mini`
+
 ## 明确不做的 v1 能力
 
 以下能力不属于 v1 承诺范围：
@@ -112,7 +123,7 @@ const client = new OpenAI({
 });
 
 const completion = await client.chat.completions.create({
-  model: 'codex',
+  model: 'gpt-5.4',
   messages: [{ role: 'user', content: 'Say hello.' }],
 });
 
@@ -121,7 +132,7 @@ console.log(completion.choices[0]?.message.content);
 
 ```ts
 const response = await client.responses.create({
-  model: 'codex',
+  model: 'gpt-5.3-codex',
   input: 'Summarize this file.',
 });
 

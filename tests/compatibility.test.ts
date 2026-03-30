@@ -62,12 +62,15 @@ describe('OpenAI SDK compatibility', () => {
     });
 
     const completion = await client.chat.completions.create({
-      model: 'codex',
+      model: 'gpt-5.4',
       messages: [{ role: 'user', content: 'Say hello.' }],
     });
 
     expect(completion.choices[0]?.message.content).toBe('Hello from SDK chat');
-    expect(completion.model).toBe('codex');
+    expect(completion.model).toBe('gpt-5.4');
+    expect(runtime.runCalls[0]?.threadOptions).toMatchObject({
+      model: 'gpt-5.4',
+    });
   });
 
   it('supports `responses.create()` via `baseURL`', async () => {

@@ -357,4 +357,45 @@ describe('POST /v1/responses', () => {
       },
     });
   });
+
+  it('passes through a directly requested supported codex-family model', async () => {
+    const runtime = new FakeRuntime(
+      {
+        threadId: 'thread-response-6',
+        finalResponse: 'Hello from GPT-5.3-Codex',
+        items: [],
+        usage: null,
+      },
+      {
+        threadId: 'thread-response-6',
+        events: createStream([]),
+      },
+    );
+
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+      },
+      runtime,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/responses',
+      payload: {
+        model: 'gpt-5.3-codex',
+        input: 'Say hello.',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json<MinimalResponseBody>()).toMatchObject({
+      output_text: 'Hello from GPT-5.3-Codex',
+      model: 'gpt-5.3-codex',
+    });
+    expect(runtime.runCalls[0]?.threadOptions).toMatchObject({
+      model: 'gpt-5.3-codex',
+    });
+  });
 });

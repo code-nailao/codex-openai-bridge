@@ -5,19 +5,28 @@ export type ModelAlias = {
   resolved_model: string | null;
 };
 
+const DIRECT_MODEL_IDS = [
+  'gpt-5.4',
+  'gpt-5.3-codex',
+  'gpt-5.2',
+  'gpt-5.2-codex',
+  'gpt-5.1-codex-max',
+  'gpt-5.1-codex-mini',
+] as const;
+
+function createModelAlias(id: string, resolvedModel: string | null): ModelAlias {
+  return {
+    id,
+    object: 'model',
+    owned_by: 'codex-openai-bridge',
+    resolved_model: resolvedModel,
+  };
+}
+
 export function createModelCatalog(codexModel: string): ModelAlias[] {
   return [
-    {
-      id: 'gpt-5',
-      object: 'model',
-      owned_by: 'codex-openai-bridge',
-      resolved_model: null,
-    },
-    {
-      id: 'codex',
-      object: 'model',
-      owned_by: 'codex-openai-bridge',
-      resolved_model: codexModel,
-    },
+    createModelAlias('codex', codexModel),
+    createModelAlias('gpt-5', null),
+    ...DIRECT_MODEL_IDS.map((modelId) => createModelAlias(modelId, modelId)),
   ];
 }

@@ -21,7 +21,16 @@ describe('loadEnvConfig', () => {
     expect(config.auth.apiKey).toBe('test-key');
     expect(config.runtimePolicy.sandboxMode).toBe('read-only');
     expect(config.runtimePolicy.approvalPolicy).toBe('never');
-    expect(config.models.map((model) => model.id)).toEqual(['gpt-5', 'codex']);
+    expect(config.models.map((model) => model.id)).toEqual([
+      'codex',
+      'gpt-5',
+      'gpt-5.4',
+      'gpt-5.3-codex',
+      'gpt-5.2',
+      'gpt-5.2-codex',
+      'gpt-5.1-codex-max',
+      'gpt-5.1-codex-mini',
+    ]);
   });
 });
 
@@ -45,16 +54,52 @@ describe('GET /v1/models', () => {
       object: 'list',
       data: [
         {
+          id: 'codex',
+          object: 'model',
+          owned_by: 'codex-openai-bridge',
+          resolved_model: 'gpt-5-codex',
+        },
+        {
           id: 'gpt-5',
           object: 'model',
           owned_by: 'codex-openai-bridge',
           resolved_model: null,
         },
         {
-          id: 'codex',
+          id: 'gpt-5.4',
           object: 'model',
           owned_by: 'codex-openai-bridge',
-          resolved_model: 'gpt-5-codex',
+          resolved_model: 'gpt-5.4',
+        },
+        {
+          id: 'gpt-5.3-codex',
+          object: 'model',
+          owned_by: 'codex-openai-bridge',
+          resolved_model: 'gpt-5.3-codex',
+        },
+        {
+          id: 'gpt-5.2',
+          object: 'model',
+          owned_by: 'codex-openai-bridge',
+          resolved_model: 'gpt-5.2',
+        },
+        {
+          id: 'gpt-5.2-codex',
+          object: 'model',
+          owned_by: 'codex-openai-bridge',
+          resolved_model: 'gpt-5.2-codex',
+        },
+        {
+          id: 'gpt-5.1-codex-max',
+          object: 'model',
+          owned_by: 'codex-openai-bridge',
+          resolved_model: 'gpt-5.1-codex-max',
+        },
+        {
+          id: 'gpt-5.1-codex-mini',
+          object: 'model',
+          owned_by: 'codex-openai-bridge',
+          resolved_model: 'gpt-5.1-codex-mini',
         },
       ],
     });

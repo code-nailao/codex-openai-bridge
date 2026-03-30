@@ -131,6 +131,17 @@ npm start
 - 不把环境变量读取下沉到 adapter / route 细节
 - workspace override 必须显式开启，并受 allowlist 约束
 
+当前默认支持的请求模型 id：
+
+- `codex`
+- `gpt-5`
+- `gpt-5.4`
+- `gpt-5.3-codex`
+- `gpt-5.2`
+- `gpt-5.2-codex`
+- `gpt-5.1-codex-max`
+- `gpt-5.1-codex-mini`
+
 ## 运行时原则
 
 ### Gateway API

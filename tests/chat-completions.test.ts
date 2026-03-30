@@ -193,4 +193,44 @@ describe('POST /v1/chat/completions', () => {
       },
     });
   });
+
+  it('passes through a directly requested supported model such as gpt-5.4', async () => {
+    const runtime = new FakeRuntime(
+      {
+        threadId: 'thread-chat-4',
+        finalResponse: 'Hello from GPT-5.4',
+        items: [],
+        usage: null,
+      },
+      {
+        threadId: 'thread-chat-4',
+        events: createStream([]),
+      },
+    );
+
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+      },
+      runtime,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: {
+        model: 'gpt-5.4',
+        messages: [{ role: 'user', content: 'Say hello.' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      model: 'gpt-5.4',
+    });
+    expect(runtime.runCalls[0]?.threadOptions).toMatchObject({
+      model: 'gpt-5.4',
+    });
+  });
 });

@@ -2,6 +2,13 @@
 
 本项目采用 [Semantic Versioning](https://semver.org/) 管理版本。
 
+## [Unreleased]
+
+### Added
+
+- 新增直接模型选择支持：请求可直接传 `gpt-5.4`、`gpt-5.3-codex`、`gpt-5.2`、`gpt-5.2-codex`、`gpt-5.1-codex-max`、`gpt-5.1-codex-mini`
+- 保留 `codex` 作为桥接层模型别名，继续解析到 `CODEX_MODEL`
+
 ## [0.1.0] - 2026-03-30
 
 ### Added
