@@ -24,6 +24,7 @@
 - 默认运行策略是 `read-only + approval=never`
 - 默认网络监听仅限 `127.0.0.1`
 - 默认开启 bearer auth
+- 对外公开的模型选择必须由请求 `model` 明确传入，不通过隐藏 env 别名偷偷改语义
 - `responses` 是 thread 续接主路径；`chat/completions` 优先保持消息历史驱动语义
 - `sub2api` 只可用于设计参考，不得直接当作运行时核心拼装
 - `codex app-server` 只作为后续优化选项，不得反向劫持 v1 架构
@@ -102,7 +103,7 @@
 - `runtime/`：Codex SDK / CLI runtime 封装、thread 恢复、取消、usage 抽取
 - `adapters/`：OpenAI request normalization、response mapping、event normalization
 - `store/`：SQLite 持久化、session mapping、并发控制
-- `config/`：模型别名、运行策略、环境变量收敛
+- `config/`：模型目录、运行策略、环境变量收敛
 - `tests/`：契约测试、适配层测试、兼容性测试、SSE 回归测试
 
 禁止把 HTTP、会话持久化、Codex runtime 和 OpenAI 适配逻辑揉进一个文件或一个“万能 service”。

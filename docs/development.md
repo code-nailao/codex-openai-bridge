@@ -93,12 +93,12 @@ tests/
 
 ```bash
 npm install
+cp .env.example .env
 ```
 
 ### 启动开发服务
 
 ```bash
-export LOCAL_BRIDGE_API_KEY="replace-me"
 npm run dev
 ```
 
@@ -113,13 +113,14 @@ npm start
 
 配置统一收敛在 `src/config/env.ts`，业务逻辑内部不允许零散读取 `process.env`。
 
+CLI 启动入口默认读取仓库根目录 `.env`；显式传入 `env` 的 programmatic path 不会再隐式混入本地 `.env`，避免测试和嵌入式调用被开发者机器配置污染。
+
 当前主要配置项：
 
 - `HOST`：默认 `127.0.0.1`
 - `PORT`：默认 `8787`
 - `LOCAL_BRIDGE_API_KEY`：鉴权开启时必填
 - `BRIDGE_DISABLE_AUTH`：仅限本地调试时关闭鉴权
-- `CODEX_MODEL`：`codex` 别名对应的真实模型
 - `SQLITE_PATH`：SQLite 数据文件
 - `CODEX_WORKSPACE_ROOT`：默认工作目录根
 - `BRIDGE_ENABLE_CWD_OVERRIDE`：是否允许 `x-codex-cwd`
@@ -130,11 +131,10 @@ npm start
 - 配置校验失败要尽早启动失败
 - 不把环境变量读取下沉到 adapter / route 细节
 - workspace override 必须显式开启，并受 allowlist 约束
+- 模型选择由请求 `model` 显式声明，不通过 env 做隐藏别名切换
 
 当前默认支持的请求模型 id：
 
-- `codex`
-- `gpt-5`
 - `gpt-5.4`
 - `gpt-5.3-codex`
 - `gpt-5.2`
@@ -176,7 +176,7 @@ HTTP 层不负责：
 
 - 保存 `x-session-id -> codex_thread_id`
 - 保存 `response_id -> thread_id/session_id`
-- 保存模型别名、workspace、最近活动时间
+- 保存请求模型 id、workspace、最近活动时间
 - 为同一 session 串行化请求，避免 thread 并发续写
 
 ## 接口与兼容约束
@@ -197,7 +197,7 @@ HTTP 层不负责：
 
 ### `GET /v1/models`
 
-- 返回本地桥接允许的模型别名
+- 返回本地桥接允许的直接模型 id 列表
 - 不做远端探测
 
 ### `GET /healthz`
@@ -239,6 +239,12 @@ HTTP 层不负责：
 - 无鉴权 -> `401`
 
 不要把底层错误原样透传给客户端；需要先收敛为稳定的桥接层契约。
+
+## 安全边界补充
+
+- 该项目应被视为 localhost compatibility bridge，而不是公网 reverse proxy
+- 如果关闭鉴权、开放非 `127.0.0.1` 监听或放开 workspace 约束，风险模型会立刻变化
+- 即使本桥不直连第三方中转站 REST，底层 Codex 仍可能把请求发送到其官方后端，因此输入给桥的内容仍要按敏感数据处理
 
 ## 日志原则
 

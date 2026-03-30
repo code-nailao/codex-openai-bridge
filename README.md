@@ -41,7 +41,7 @@
 | --- | --- | --- |
 | `POST /v1/chat/completions` | OpenAI-compatible chat surface，支持文本输入、流式与非流式 | implemented |
 | `POST /v1/responses` | OpenAI-compatible responses surface，承担 thread 续接主路径 | implemented |
-| `GET /v1/models` | 返回本地桥接允许的模型别名列表 | implemented |
+| `GET /v1/models` | 返回本地桥接允许的直接模型 id 列表 | implemented |
 | `GET /healthz` | 健康检查：HTTP 存活与最小运行状态 | implemented |
 
 ### 请求头契约
@@ -59,8 +59,6 @@
 
 ### 当前支持的模型 id
 
-- `codex`：桥接层别名，解析到启动时配置的 `CODEX_MODEL`
-- `gpt-5`
 - `gpt-5.4`
 - `gpt-5.3-codex`
 - `gpt-5.2`
@@ -94,23 +92,25 @@
 
 ```bash
 npm install
-export LOCAL_BRIDGE_API_KEY="replace-me"
+cp .env.example .env
 npm run dev
 ```
 
 默认监听：`http://127.0.0.1:8787/v1`
+
+默认启动入口会自动读取仓库根目录 `.env`；同名 shell 环境变量优先级更高。
 
 ### 常用环境变量
 
 - `HOST`：默认 `127.0.0.1`
 - `PORT`：默认 `8787`
 - `LOCAL_BRIDGE_API_KEY`：默认鉴权密钥；鉴权开启时必填
-- `CODEX_MODEL`：`codex` 别名对应的真实本地模型，默认 `gpt-5-codex`
 - `SQLITE_PATH`：SQLite 存储文件路径
 - `CODEX_WORKSPACE_ROOT`：默认工作目录根
 - `BRIDGE_ENABLE_CWD_OVERRIDE`：是否允许 `x-codex-cwd`
 - `BRIDGE_ALLOWED_CWD_ROOTS`：可选 cwd allowlist，逗号分隔
 - `BRIDGE_DISABLE_AUTH=true`：仅限本地受控环境调试时关闭鉴权
+- 模型选择不写在 env；每次请求直接通过 `model` 传支持的真实模型 id
 
 ### OpenAI SDK 接入示例
 
@@ -151,7 +151,7 @@ curl http://127.0.0.1:8787/v1/chat/completions \
   -H "Authorization: Bearer ${LOCAL_BRIDGE_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "codex",
+    "model": "gpt-5.4",
     "messages": [{ "role": "user", "content": "Say hello." }]
   }'
 ```
@@ -161,7 +161,7 @@ curl http://127.0.0.1:8787/v1/responses \
   -H "Authorization: Bearer ${LOCAL_BRIDGE_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "codex",
+    "model": "gpt-5.4",
     "input": "Explain what this repository does."
   }'
 ```
@@ -173,6 +173,7 @@ curl http://127.0.0.1:8787/v1/responses \
 - 默认 `sandbox=read-only` 与 `approval=never`
 - 默认不记录 prompt 正文，只记录最小化运维日志
 - `CODEX_WORKSPACE_ROOT` 固定工作目录；`x-codex-cwd` 默认关闭
+- 这更准确地说是本地兼容桥，不是面向公网的通用反代；一旦暴露到 localhost 之外，风险会显著上升
 - 如果 Codex 仍触发审批事件，桥接层返回明确错误，而不是把 HTTP 请求挂死
 
 ## 兼容语义摘要

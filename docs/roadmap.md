@@ -22,7 +22,7 @@
 | Item | Status | Goal | Done When | Implemented Location |
 | --- | --- | --- | --- | --- |
 | Fastify gateway scaffold | `done` | 初始化 HTTP service、路由装配与最小启动流程 | 服务可在 `127.0.0.1:8787` 启动 | `src/app.ts`, `src/index.ts` |
-| Runtime policy and config | `done` | 固化 host、auth、workspace、sandbox、approval 等运行策略 | 配置集中校验，启动期即可发现缺失或冲突 | `src/config/env.ts`, `src/config/runtime-policy.ts`, `src/config/models.ts` |
+| Runtime policy and config | `done` | 固化 host、auth、workspace、sandbox、approval 与直接模型目录等运行策略 | 配置集中校验，启动期即可发现缺失或冲突 | `src/config/env.ts`, `src/config/runtime-policy.ts`, `src/config/models.ts` |
 | SQLite session store | `done` | 持久化 session/thread/response 映射并提供互斥锁 | 服务重启后可恢复 session，同 session 不发生并发乱序 | `src/store/session-store.ts`, `src/store/locks.ts` |
 | Codex runtime wrapper | `done` | 封装 `@openai/codex-sdk` 的 thread 创建、恢复、取消与 usage 抽取 | 统一暴露 `run()`、`runStreamed()`、abort 与 usage 结果 | `src/runtime/codex-runtime.ts`, `src/runtime/thread-manager.ts` |
 | Event normalization | `done` | 将底层 Codex 事件收敛成桥接层内部事件 | `chat` 与 `responses` adapter 复用同一事件面 | `src/adapters/event-normalizer.ts`, `src/runtime/normalized-stream.ts` |
@@ -30,7 +30,7 @@
 | Chat completions SSE | `done` | 实现 `chat.completion.chunk` 流式输出 | 客户端收到 role chunk、delta chunks、stop chunk 与 `[DONE]` | `src/server/sse/chat-stream.ts`, `src/server/sse/sse-stream.ts` |
 | Responses JSON | `done` | 实现 `POST /v1/responses` 非流式路径与 thread 续接 | `previous_response_id` 与 `x-session-id` 可恢复同一 thread | `src/server/routes/responses.ts`, `src/adapters/responses-adapter.ts` |
 | Responses SSE | `done` | 实现常用文本事件子集的流式输出 | 事件顺序稳定，可拼回完整文本输出 | `src/server/sse/responses-stream.ts`, `src/server/sse/sse-stream.ts` |
-| Models and healthz | `done` | 补齐 `GET /v1/models` 与 `GET /healthz` | 返回本地模型别名、直接支持的模型 id 与最小健康信息，不触发真实推理 | `src/server/routes/models.ts`, `src/server/routes/healthz.ts` |
+| Models and healthz | `done` | 补齐 `GET /v1/models` 与 `GET /healthz` | 返回本地允许的直接模型 id 与最小健康信息，不触发真实推理 | `src/server/routes/models.ts`, `src/server/routes/healthz.ts` |
 | Error mapping and cancellation | `done` | 统一处理 approval、timeout、rate limit、unsupported feature 与 disconnect cancel | 错误体稳定，请求中断可取消底层 run | `src/server/errors/error-mapper.ts`, `src/server/auth.ts`, `src/server/request-headers.ts` |
 | Compatibility validation | `done` | 用 OpenAI SDK `baseURL` 模式和契约测试做最小兼容验证 | 覆盖 headers、SSE、error body、session restore、unsupported feature | `tests/*.test.ts` |
 

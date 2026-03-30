@@ -6,8 +6,13 @@
 
 ### Added
 
-- 新增直接模型选择支持：请求可直接传 `gpt-5.4`、`gpt-5.3-codex`、`gpt-5.2`、`gpt-5.2-codex`、`gpt-5.1-codex-max`、`gpt-5.1-codex-mini`
-- 保留 `codex` 作为桥接层模型别名，继续解析到 `CODEX_MODEL`
+- 新增根级 `.env.example`，提供本地启动配置模板
+- 服务启动入口新增根级 `.env` 自动加载能力，且显式传入的环境变量优先级更高
+
+### Changed
+
+- 移除桥接层 `codex` 与 `gpt-5` 模型别名；请求必须直接传支持的真实模型 id
+- 同步更新 README、development guide 与 roadmap 中的模型与配置说明
 
 ## [0.1.0] - 2026-03-30
 
@@ -22,7 +27,7 @@
 ### Implemented
 
 - 实现 Fastify localhost sidecar 与服务启动入口
-- 实现运行配置、模型别名、workspace 约束与默认安全策略
+- 实现运行配置、模型目录、workspace 约束与默认安全策略
 - 实现 SQLite session / response store 与 session 串行化锁
 - 实现 Codex runtime 封装、thread 恢复与事件归一化
 - 实现 `POST /v1/chat/completions` 的 JSON 与 SSE 兼容路径
