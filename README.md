@@ -56,6 +56,8 @@
 - `/v1/responses`：返回 `response` 与常用文本事件子集
 - 错误体统一采用 OpenAI 风格：`{ error: { message, type, code, param? } }`
 - 所有成功响应回写 `x-session-id` 与 `x-codex-thread-id`
+- 当客户端未传 `model` 时，桥接层默认使用 `gpt-5.4`
+- 当客户端未传 `reasoning_effort` 时，桥接层默认使用 `medium`
 
 ### 当前支持的模型 id
 
@@ -110,7 +112,8 @@ npm run dev
 - `BRIDGE_ENABLE_CWD_OVERRIDE`：是否允许 `x-codex-cwd`
 - `BRIDGE_ALLOWED_CWD_ROOTS`：可选 cwd allowlist，逗号分隔
 - `BRIDGE_DISABLE_AUTH=true`：仅限本地受控环境调试时关闭鉴权
-- 模型选择不写在 env；每次请求直接通过 `model` 传支持的真实模型 id
+- 模型选择不写在 env；每次请求可以显式传 `model`，不传时默认 `gpt-5.4`
+- `reasoning_effort` 不写在 env；每次请求可以显式传值，不传时默认 `medium`
 
 ### OpenAI SDK 接入示例
 
@@ -124,6 +127,7 @@ const client = new OpenAI({
 
 const completion = await client.chat.completions.create({
   model: 'gpt-5.4',
+  reasoning_effort: 'medium',
   messages: [{ role: 'user', content: 'Say hello.' }],
 });
 
@@ -133,6 +137,7 @@ console.log(completion.choices[0]?.message.content);
 ```ts
 const response = await client.responses.create({
   model: 'gpt-5.3-codex',
+  reasoning_effort: 'high',
   input: 'Summarize this file.',
 });
 
@@ -162,6 +167,7 @@ curl http://127.0.0.1:8787/v1/responses \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gpt-5.4",
+    "reasoning_effort": "medium",
     "input": "Explain what this repository does."
   }'
 ```
