@@ -48,7 +48,7 @@ export function registerResponsesRoute(app: FastifyInstance, services: BridgeSer
         services.sessionStore.upsertSession({
           sessionId: resolvedSession.sessionId,
           threadId,
-          modelAlias: normalizedRequest.modelAlias.id,
+          modelId: normalizedRequest.model.id,
           workspaceCwd: workingDirectory,
         });
         services.sessionStore.upsertResponse({
@@ -64,7 +64,7 @@ export function registerResponsesRoute(app: FastifyInstance, services: BridgeSer
 
         return createResponseObject({
           responseId,
-          model: normalizedRequest.modelAlias.id,
+          model: normalizedRequest.model.id,
           text: result.finalResponse,
           usage: result.usage,
         });
@@ -78,7 +78,7 @@ export function registerResponsesRoute(app: FastifyInstance, services: BridgeSer
       services.sessionStore.upsertSession({
         sessionId: resolvedSession.sessionId,
         threadId: normalizedStream.threadId,
-        modelAlias: normalizedRequest.modelAlias.id,
+        modelId: normalizedRequest.model.id,
         workspaceCwd: workingDirectory,
       });
       services.sessionStore.upsertResponse({
@@ -100,7 +100,7 @@ export function registerResponsesRoute(app: FastifyInstance, services: BridgeSer
             stream,
             events: normalizedStream.events,
             responseId,
-            model: normalizedRequest.modelAlias.id,
+            model: normalizedRequest.model.id,
             createdAt,
           });
         } catch (error) {

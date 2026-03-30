@@ -1,4 +1,4 @@
-export type ModelAlias = {
+export type SupportedModel = {
   id: string;
   object: 'model';
   owned_by: 'codex-openai-bridge';
@@ -14,7 +14,7 @@ export const DIRECT_MODEL_IDS = [
   'gpt-5.1-codex-mini',
 ] as const;
 
-function createModelAlias(id: string, resolvedModel: string): ModelAlias {
+function createSupportedModel(id: string, resolvedModel: string): SupportedModel {
   return {
     id,
     object: 'model',
@@ -23,10 +23,10 @@ function createModelAlias(id: string, resolvedModel: string): ModelAlias {
   };
 }
 
-export function createModelCatalog(): ModelAlias[] {
-  return DIRECT_MODEL_IDS.map((modelId) => createModelAlias(modelId, modelId));
+export function createModelCatalog(): SupportedModel[] {
+  return DIRECT_MODEL_IDS.map((modelId) => createSupportedModel(modelId, modelId));
 }
 
-export function findModelAlias(models: readonly ModelAlias[], alias: string): ModelAlias | null {
-  return models.find((candidate) => candidate.id === alias) ?? null;
+export function findSupportedModel(models: readonly SupportedModel[], id: string): SupportedModel | null {
+  return models.find((candidate) => candidate.id === id) ?? null;
 }

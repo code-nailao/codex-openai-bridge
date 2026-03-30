@@ -2,6 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
+import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { SessionLockManager } from '../src/store/locks.js';
@@ -27,7 +28,7 @@ describe('SessionStore', () => {
     firstStore.upsertSession({
       sessionId: 'session-1',
       threadId: 'thread-1',
-      modelAlias: 'gpt-5.4',
+      modelId: 'gpt-5.4',
       workspaceCwd: '/tmp/workspace',
     });
     firstStore.upsertResponse({
@@ -46,7 +47,7 @@ describe('SessionStore', () => {
     expect(session).toMatchObject({
       sessionId: 'session-1',
       threadId: 'thread-1',
-      modelAlias: 'gpt-5.4',
+      modelId: 'gpt-5.4',
       workspaceCwd: '/tmp/workspace',
     });
     expect(typeof session?.updatedAt).toBe('string');
@@ -60,6 +61,59 @@ describe('SessionStore', () => {
     expect(typeof response?.createdAt).toBe('string');
 
     secondStore.close();
+  });
+
+  it('migrates legacy model_alias session rows to model_id', async () => {
+    const dbPath = await createDbPath();
+    const legacyDb = new Database(dbPath);
+
+    legacyDb.exec(`
+      CREATE TABLE sessions (
+        session_id TEXT PRIMARY KEY,
+        thread_id TEXT NOT NULL,
+        model_alias TEXT NOT NULL,
+        workspace_cwd TEXT,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE responses (
+        response_id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        thread_id TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+    `);
+    legacyDb
+      .prepare(`
+        INSERT INTO sessions (session_id, thread_id, model_alias, workspace_cwd, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+      `)
+      .run('legacy-session', 'legacy-thread', 'gpt-5.4', '/tmp/legacy-workspace', new Date().toISOString());
+    legacyDb.close();
+
+    const store = new SessionStore({ dbPath });
+    const session = store.getSession('legacy-session');
+    const migratedDb = new Database(dbPath, { readonly: true });
+    const columns = migratedDb
+      .prepare<
+        [],
+        {
+          name: string;
+        }
+      >('PRAGMA table_info(sessions)')
+      .all()
+      .map((column) => column.name);
+
+    expect(columns).toContain('model_id');
+    expect(session).toMatchObject({
+      sessionId: 'legacy-session',
+      threadId: 'legacy-thread',
+      modelId: 'gpt-5.4',
+      workspaceCwd: '/tmp/legacy-workspace',
+    });
+
+    migratedDb.close();
+    store.close();
   });
 });
 

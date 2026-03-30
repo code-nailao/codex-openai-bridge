@@ -42,7 +42,7 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
         services.sessionStore.upsertSession({
           sessionId,
           threadId: resolvedThreadId,
-          modelAlias: normalizedRequest.modelAlias.id,
+          modelId: normalizedRequest.model.id,
           workspaceCwd: workingDirectory,
         });
 
@@ -52,7 +52,7 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
         });
 
         return toChatCompletionResponse({
-          model: normalizedRequest.modelAlias.id,
+          model: normalizedRequest.model.id,
           content: result.finalResponse,
           usage: mapUsage(result.usage),
         });
@@ -69,7 +69,7 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
       services.sessionStore.upsertSession({
         sessionId,
         threadId: normalizedStream.threadId,
-        modelAlias: normalizedRequest.modelAlias.id,
+        modelId: normalizedRequest.model.id,
         workspaceCwd: workingDirectory,
       });
 
@@ -88,7 +88,7 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
             stream,
             events: normalizedStream.events,
             responseId,
-            model: normalizedRequest.modelAlias.id,
+            model: normalizedRequest.model.id,
             created,
           });
         } catch (error) {

@@ -2,7 +2,7 @@ import type { ThreadOptions, Usage } from '@openai/codex-sdk';
 import { z } from 'zod';
 
 import type { BridgeConfig } from '../config/env.js';
-import { findModelAlias, type ModelAlias } from '../config/models.js';
+import { findSupportedModel, type SupportedModel } from '../config/models.js';
 import {
   DEFAULT_MODEL,
   DEFAULT_REASONING_EFFORT,
@@ -39,7 +39,7 @@ const responsesRequestSchema = z
   .passthrough();
 
 export type NormalizedResponsesRequest = {
-  modelAlias: ModelAlias;
+  model: SupportedModel;
   input: string;
   stream: boolean;
   previousResponseId: string | null;
@@ -84,13 +84,13 @@ function extractText(content: string | Array<{ type: 'text' | 'input_text'; text
   return content.map((part) => part.text).join('\n');
 }
 
-function resolveModelAlias(config: BridgeConfig, alias: string): ModelAlias {
-  const modelAlias = findModelAlias(config.models, alias);
-  if (!modelAlias) {
-    throw createModelNotFoundError(alias);
+function resolveRequestedModel(config: BridgeConfig, id: string): SupportedModel {
+  const selectedModel = findSupportedModel(config.models, id);
+  if (!selectedModel) {
+    throw createModelNotFoundError(id);
   }
 
-  return modelAlias;
+  return selectedModel;
 }
 
 function buildResponsesTranscript(input: z.infer<typeof responsesRequestSchema>['input']): string {
@@ -129,14 +129,14 @@ export function normalizeResponsesRequest(
     throw createUnsupportedFeatureError('text');
   }
 
-  const modelAlias = resolveModelAlias(config, parsed.model);
+  const selectedModel = resolveRequestedModel(config, parsed.model);
   const transcript = buildResponsesTranscript(parsed.input);
   const input = parsed.instructions
     ? `Instructions:\n${parsed.instructions}\n\nTranscript:\n${transcript}`
     : transcript;
 
   return {
-    modelAlias,
+    model: selectedModel,
     input,
     stream: parsed.stream,
     previousResponseId: parsed.previous_response_id ?? null,
@@ -144,7 +144,7 @@ export function normalizeResponsesRequest(
       sandboxMode: config.runtimePolicy.sandboxMode,
       approvalPolicy: config.runtimePolicy.approvalPolicy,
       webSearchMode: config.runtimePolicy.webSearchMode,
-      model: modelAlias.resolved_model,
+      model: selectedModel.resolved_model,
       modelReasoningEffort: parsed.reasoning_effort,
       ...(options?.workingDirectory ? { workingDirectory: options.workingDirectory } : {}),
     },

@@ -6,7 +6,7 @@ import Database from 'better-sqlite3';
 export type SessionRecord = {
   sessionId: string;
   threadId: string;
-  modelAlias: string;
+  modelId: string;
   workspaceCwd: string | null;
   updatedAt: string;
 };
@@ -31,16 +31,16 @@ export class SessionStore {
   public upsertSession(input: {
     sessionId: string;
     threadId: string;
-    modelAlias: string;
+    modelId: string;
     workspaceCwd: string | null;
   }) {
     const updatedAt = new Date().toISOString();
     const statement = this.db.prepare(`
-      INSERT INTO sessions (session_id, thread_id, model_alias, workspace_cwd, updated_at)
-      VALUES (@sessionId, @threadId, @modelAlias, @workspaceCwd, @updatedAt)
+      INSERT INTO sessions (session_id, thread_id, model_id, workspace_cwd, updated_at)
+      VALUES (@sessionId, @threadId, @modelId, @workspaceCwd, @updatedAt)
       ON CONFLICT(session_id) DO UPDATE SET
         thread_id = excluded.thread_id,
-        model_alias = excluded.model_alias,
+        model_id = excluded.model_id,
         workspace_cwd = excluded.workspace_cwd,
         updated_at = excluded.updated_at
     `);
@@ -57,12 +57,12 @@ export class SessionStore {
       {
         session_id: string;
         thread_id: string;
-        model_alias: string;
+        model_id: string;
         workspace_cwd: string | null;
         updated_at: string;
       }
     >(`
-      SELECT session_id, thread_id, model_alias, workspace_cwd, updated_at
+      SELECT session_id, thread_id, model_id, workspace_cwd, updated_at
       FROM sessions
       WHERE session_id = ?
     `);
@@ -75,7 +75,7 @@ export class SessionStore {
     return {
       sessionId: row.session_id,
       threadId: row.thread_id,
-      modelAlias: row.model_alias,
+      modelId: row.model_id,
       workspaceCwd: row.workspace_cwd,
       updatedAt: row.updated_at,
     };
@@ -135,7 +135,7 @@ export class SessionStore {
       CREATE TABLE IF NOT EXISTS sessions (
         session_id TEXT PRIMARY KEY,
         thread_id TEXT NOT NULL,
-        model_alias TEXT NOT NULL,
+        model_id TEXT NOT NULL,
         workspace_cwd TEXT,
         updated_at TEXT NOT NULL
       );
@@ -147,5 +147,30 @@ export class SessionStore {
         created_at TEXT NOT NULL
       );
     `);
+
+    this.migrateLegacySessionColumns();
+  }
+
+  private migrateLegacySessionColumns() {
+    // Older builds persisted the public model id under `model_alias`; backfill once on open.
+    const columns = this.db
+      .prepare<
+        [],
+        {
+          name: string;
+        }
+      >('PRAGMA table_info(sessions)')
+      .all();
+
+    const hasModelId = columns.some((column) => column.name === 'model_id');
+    const hasModelAlias = columns.some((column) => column.name === 'model_alias');
+
+    if (!hasModelId) {
+      this.db.exec('ALTER TABLE sessions ADD COLUMN model_id TEXT');
+    }
+
+    if (hasModelAlias) {
+      this.db.exec('UPDATE sessions SET model_id = COALESCE(model_id, model_alias)');
+    }
   }
 }

@@ -371,7 +371,7 @@ describe('POST /v1/responses', () => {
     sessionStore.upsertSession({
       sessionId: 'sess_conflict',
       threadId: 'thread-response-other',
-      modelAlias: 'gpt-5.4',
+      modelId: 'gpt-5.4',
       workspaceCwd: null,
     });
 
