@@ -40,6 +40,7 @@ const chatRequestSchema = z
 export type NormalizedChatRequest = {
   model: SupportedModel;
   stream: boolean;
+  reasoningEffort: (typeof SUPPORTED_REASONING_EFFORTS)[number];
   input: string;
   threadOptions: ThreadOptions;
 };
@@ -130,6 +131,7 @@ export function normalizeChatRequest(payload: unknown, config: BridgeConfig, opt
   return {
     model: selectedModel,
     stream: parsed.stream,
+    reasoningEffort: parsed.reasoning_effort,
     input,
     threadOptions: {
       sandboxMode: config.runtimePolicy.sandboxMode,

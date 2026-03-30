@@ -3,8 +3,10 @@ import type { FastifyInstance } from 'fastify';
 import { createResponseObject, normalizeResponsesRequest } from '../../adapters/responses-adapter.js';
 import {
   annotateRequestLogContext,
+  annotateRequestLogError,
   annotateRequestLogRequest,
   annotateRequestLogResponse,
+  annotateRequestLogUsage,
 } from '../../observability/request-logging.js';
 import { readOptionalHeader } from '../request-headers.js';
 import { createRequestAbortController, createStreamErrorBody } from '../route-support.js';
@@ -24,6 +26,8 @@ export function registerResponsesRoute(app: FastifyInstance, services: BridgeSer
     });
     annotateRequestLogContext(request, {
       model: normalizedRequest.model.id,
+      stream: normalizedRequest.stream,
+      reasoningEffort: normalizedRequest.reasoningEffort,
     });
     annotateRequestLogRequest(request, normalizedRequest.input, services.config.logging);
     const requestedSessionId = readOptionalHeader(request, 'x-session-id');
@@ -62,6 +66,7 @@ export function registerResponsesRoute(app: FastifyInstance, services: BridgeSer
           sessionId: resolvedSession.sessionId,
           threadId: result.threadId,
         });
+        annotateRequestLogUsage(request, result.usage);
         annotateRequestLogResponse(request, result.finalResponse, services.config.logging);
 
         return createResponseObject({
@@ -103,6 +108,7 @@ export function registerResponsesRoute(app: FastifyInstance, services: BridgeSer
           annotateRequestLogResponse(request, finalText, services.config.logging);
         } catch (error) {
           const errorBody = createStreamErrorBody(error);
+          annotateRequestLogError(request, errorBody.error);
           annotateRequestLogResponse(request, errorBody.error.message, services.config.logging);
           writeNamedSseEvent(stream, 'error', errorBody);
         } finally {

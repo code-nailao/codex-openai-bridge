@@ -42,6 +42,7 @@ export type NormalizedResponsesRequest = {
   model: SupportedModel;
   input: string;
   stream: boolean;
+  reasoningEffort: (typeof SUPPORTED_REASONING_EFFORTS)[number];
   previousResponseId: string | null;
   threadOptions: ThreadOptions;
 };
@@ -139,6 +140,7 @@ export function normalizeResponsesRequest(
     model: selectedModel,
     input,
     stream: parsed.stream,
+    reasoningEffort: parsed.reasoning_effort,
     previousResponseId: parsed.previous_response_id ?? null,
     threadOptions: {
       sandboxMode: config.runtimePolicy.sandboxMode,

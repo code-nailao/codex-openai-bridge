@@ -185,7 +185,8 @@ describe('dev file logging', () => {
 
     expect(serializedEntries).not.toContain('super-secret-prompt-value');
     expect(serializedEntries).not.toContain('messages');
-    expect(serializedEntries).not.toContain('input');
+    expect(serializedEntries).not.toContain('request_preview');
+    expect(serializedEntries).not.toContain('response_preview');
   });
 
   it('logs redacted content previews when full content logging is enabled', async () => {
@@ -244,6 +245,61 @@ describe('dev file logging', () => {
     expect(serializedEntries).toContain('token=[REDACTED]');
     expect(serializedEntries).not.toContain('super-secret-token');
     expect(serializedEntries).not.toContain('reply-secret');
+  });
+
+  it('logs normalized stream, reasoning, and usage metadata for successful requests', async () => {
+    const logger = new MemoryLogger();
+    const runtime = new FakeRuntime(
+      {
+        threadId: 'thread-log-usage',
+        finalResponse: 'OK',
+        items: [],
+        usage: {
+          input_tokens: 21,
+          cached_input_tokens: 0,
+          output_tokens: 8,
+        },
+      },
+      {
+        threadId: 'thread-log-usage',
+        events: (async function* () {
+          await Promise.resolve();
+          yield* [];
+        })(),
+      },
+    );
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+      },
+      runtime,
+      logger,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: {
+        stream: false,
+        reasoning_effort: 'high',
+        messages: [{ role: 'user', content: 'Reply with OK.' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const requestLog = logger.entries.find((entry) => entry.event === 'http_request');
+
+    expect(requestLog).toMatchObject({
+      level: 'info',
+      event: 'http_request',
+      status_code: 200,
+      stream: false,
+      reasoning_effort: 'high',
+      input_tokens: 21,
+      output_tokens: 8,
+      total_tokens: 29,
+    });
   });
 
   it('logs the final streamed response preview when full content logging is enabled', async () => {
@@ -335,6 +391,10 @@ describe('dev file logging', () => {
       level: 'info',
       event: 'http_request',
       status_code: 409,
+      stream: false,
+      reasoning_effort: 'medium',
+      error_type: 'invalid_request_error',
+      error_code: 'approval_required',
       response_preview: 'approval required: token=[REDACTED]',
     });
     expect(requestLog?.request_chars).toEqual(expect.any(Number));

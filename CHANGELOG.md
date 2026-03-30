@@ -22,6 +22,7 @@
 - 收口流式文本归一化，避免 early provisional snapshot 被后续修订时向客户端重复暴露
 - 抽取共享 request execution helper，降低 `chat` 与 `responses` route 的重复编排逻辑
 - 默认日志收口为“元数据 + 长度统计”；显式开启内容日志时仅记录脱敏且截断后的请求/响应预览
+- 默认运维日志补充 `stream`、`reasoning_effort`、token usage 与稳定错误码，提升本地排障信息密度
 
 ## [0.1.0] - 2026-03-30
 

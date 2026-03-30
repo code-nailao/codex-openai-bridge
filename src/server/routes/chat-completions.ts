@@ -3,8 +3,10 @@ import type { FastifyInstance } from 'fastify';
 import { mapUsage, normalizeChatRequest, toChatCompletionResponse } from '../../adapters/chat-adapter.js';
 import {
   annotateRequestLogContext,
+  annotateRequestLogError,
   annotateRequestLogRequest,
   annotateRequestLogResponse,
+  annotateRequestLogUsage,
 } from '../../observability/request-logging.js';
 import { readOptionalHeader } from '../request-headers.js';
 import { createRequestAbortController, createStreamErrorBody } from '../route-support.js';
@@ -23,6 +25,8 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
     });
     annotateRequestLogContext(request, {
       model: normalizedRequest.model.id,
+      stream: normalizedRequest.stream,
+      reasoningEffort: normalizedRequest.reasoningEffort,
     });
     annotateRequestLogRequest(request, normalizedRequest.input, services.config.logging);
     const requestedSessionId = readOptionalHeader(request, 'x-session-id');
@@ -51,6 +55,7 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
           modelId: normalizedRequest.model.id,
           workspaceCwd: workingDirectory,
         });
+        annotateRequestLogUsage(request, result.usage);
         annotateRequestLogResponse(request, result.finalResponse, services.config.logging);
 
         return toChatCompletionResponse({
@@ -92,6 +97,7 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
           annotateRequestLogResponse(request, finalText, services.config.logging);
         } catch (error) {
           const errorBody = createStreamErrorBody(error);
+          annotateRequestLogError(request, errorBody.error);
           annotateRequestLogResponse(request, errorBody.error.message, services.config.logging);
           writeSseData(stream, errorBody);
         } finally {

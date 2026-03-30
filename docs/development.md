@@ -272,10 +272,17 @@ HTTP 层不负责：
 - `session_id`
 - `thread_id`
 - `model`
+- `stream`
+- `reasoning_effort`
 - `latency`
 - `status`
 - `request_chars`
 - `response_chars`
+- `input_tokens`
+- `output_tokens`
+- `total_tokens`
+- `error_type`
+- `error_code`
 
 默认不记录：
 

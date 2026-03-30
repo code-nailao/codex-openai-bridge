@@ -6,7 +6,7 @@ import { loadEnvConfig, type BridgeConfig } from './config/env.js';
 import type { RuntimeLike } from './contracts/runtime.js';
 import { BridgeLogger, createNoopLogger, type LoggerLike } from './observability/bridge-logger.js';
 import { FileLogSink } from './observability/file-log-sink.js';
-import { annotateRequestLogResponse, registerRequestLogging } from './observability/request-logging.js';
+import { annotateRequestLogError, annotateRequestLogResponse, registerRequestLogging } from './observability/request-logging.js';
 import { CodexRuntime } from './runtime/codex-runtime.js';
 import { HealthService, type HealthServiceLike } from './services/health-service.js';
 import { enforceRequestAuth } from './server/auth.js';
@@ -89,6 +89,7 @@ export async function createApp(options?: CreateAppOptions): Promise<FastifyInst
 
   app.setErrorHandler((error, request, reply) => {
     const response = mapErrorToResponse(error);
+    annotateRequestLogError(request, response.body.error);
     annotateRequestLogResponse(request, response.body.error.message, config.logging);
     reply.code(response.statusCode).send(response.body);
   });

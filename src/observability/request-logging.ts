@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { Usage } from '@openai/codex-sdk';
 
 import type { BridgeConfig } from '../config/env.js';
 import type { LoggerLike } from './bridge-logger.js';
@@ -6,6 +7,17 @@ import { shouldIncludeContentPreview, summarizeLogText, type LogContentSummary }
 
 type RequestLogContext = {
   model?: string;
+  stream?: boolean;
+  reasoningEffort?: string;
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
+  error?: {
+    type: string;
+    code: string;
+  };
   requestContent?: LogContentSummary;
   responseContent?: LogContentSummary;
 };
@@ -61,7 +73,23 @@ function buildContentFields(
 ): Record<string, string | number | boolean | null> {
   const context = requestLogContext.get(request);
   const includePreview = shouldIncludeContentPreview(logging, statusCode);
-  const fields: Record<string, string | number | boolean | null> = {};
+  const fields: Record<string, string | number | boolean | null> = {
+    ...(context?.stream !== undefined ? { stream: context.stream } : {}),
+    ...(context?.reasoningEffort ? { reasoning_effort: context.reasoningEffort } : {}),
+    ...(context?.usage
+      ? {
+          input_tokens: context.usage.inputTokens,
+          output_tokens: context.usage.outputTokens,
+          total_tokens: context.usage.totalTokens,
+        }
+      : {}),
+    ...(context?.error
+      ? {
+          error_type: context.error.type,
+          error_code: context.error.code,
+        }
+      : {}),
+  };
 
   if (context?.requestContent) {
     fields.request_chars = context.requestContent.chars;
@@ -99,6 +127,28 @@ export function annotateRequestLogResponse(
 ) {
   annotateRequestLogContext(request, {
     responseContent: summarizeLogText(text, logging),
+  });
+}
+
+export function annotateRequestLogUsage(request: FastifyRequest, usage: Usage | null) {
+  annotateRequestLogContext(request, {
+    usage: {
+      inputTokens: usage?.input_tokens ?? 0,
+      outputTokens: usage?.output_tokens ?? 0,
+      totalTokens: (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0),
+    },
+  });
+}
+
+export function annotateRequestLogError(
+  request: FastifyRequest,
+  error: {
+    type: string;
+    code: string;
+  },
+) {
+  annotateRequestLogContext(request, {
+    error,
   });
 }
 
