@@ -26,7 +26,7 @@ function createModelAlias(id: string, resolvedModel: string | null): ModelAlias 
 export function createModelCatalog(codexModel: string): ModelAlias[] {
   return [
     createModelAlias('codex', codexModel),
-    createModelAlias('gpt-5', null),
+    createModelAlias('gpt-5', 'gpt-5'),
     ...DIRECT_MODEL_IDS.map((modelId) => createModelAlias(modelId, modelId)),
   ];
 }

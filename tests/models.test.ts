@@ -63,7 +63,7 @@ describe('GET /v1/models', () => {
           id: 'gpt-5',
           object: 'model',
           owned_by: 'codex-openai-bridge',
-          resolved_model: null,
+          resolved_model: 'gpt-5',
         },
         {
           id: 'gpt-5.4',
