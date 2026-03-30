@@ -133,6 +133,8 @@ CLI 启动入口默认读取仓库根目录 `.env`；显式传入 `env` 的 prog
 - `BRIDGE_ALLOWED_CWD_ROOTS`：cwd allowlist
 - `BRIDGE_LOG_MODE`：日志模式，默认 `dev-file`
 - `BRIDGE_LOG_DIR`：日志根目录，默认 `log/dev`
+- `BRIDGE_LOG_CONTENT_MODE`：内容日志模式，默认 `none`
+- `BRIDGE_LOG_MAX_CONTENT_CHARS`：内容日志预览最大字符数，默认 `2000`
 
 原则：
 
@@ -264,7 +266,7 @@ HTTP 层不负责：
 
 ## 日志原则
 
-默认日志只应记录：
+默认日志应记录：
 
 - `request_id`
 - `session_id`
@@ -272,12 +274,21 @@ HTTP 层不负责：
 - `model`
 - `latency`
 - `status`
+- `request_chars`
+- `response_chars`
 
 默认不记录：
 
 - prompt 正文
 - 完整响应正文
 - 未脱敏环境变量
+
+显式开启内容日志时：
+
+- `BRIDGE_LOG_CONTENT_MODE=errors-only`：仅失败请求记录脱敏后的请求/响应预览
+- `BRIDGE_LOG_CONTENT_MODE=full`：所有请求记录脱敏后的请求/响应预览
+- 所有预览都必须先脱敏，再按 `BRIDGE_LOG_MAX_CONTENT_CHARS` 截断
+- 预览日志只允许作为本地诊断能力，不允许把默认模式改成全量正文落盘
 
 当前默认本地开发日志布局：
 

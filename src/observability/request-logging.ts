@@ -1,9 +1,13 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 
+import type { BridgeConfig } from '../config/env.js';
 import type { LoggerLike } from './bridge-logger.js';
+import { shouldIncludeContentPreview, summarizeLogText, type LogContentSummary } from './log-content.js';
 
 type RequestLogContext = {
   model?: string;
+  requestContent?: LogContentSummary;
+  responseContent?: LogContentSummary;
 };
 
 const requestLogContext = new WeakMap<FastifyRequest, RequestLogContext>();
@@ -50,7 +54,59 @@ export function annotateRequestLogContext(request: FastifyRequest, fields: Reque
   });
 }
 
-export function registerRequestLogging(app: FastifyInstance, logger: LoggerLike) {
+function buildContentFields(
+  request: FastifyRequest,
+  statusCode: number,
+  logging: BridgeConfig['logging'],
+): Record<string, string | number | boolean | null> {
+  const context = requestLogContext.get(request);
+  const includePreview = shouldIncludeContentPreview(logging, statusCode);
+  const fields: Record<string, string | number | boolean | null> = {};
+
+  if (context?.requestContent) {
+    fields.request_chars = context.requestContent.chars;
+    if (includePreview && context.requestContent.preview !== undefined) {
+      fields.request_preview = context.requestContent.preview;
+      fields.request_truncated = context.requestContent.truncated ?? false;
+    }
+  }
+
+  if (context?.responseContent) {
+    fields.response_chars = context.responseContent.chars;
+    if (includePreview && context.responseContent.preview !== undefined) {
+      fields.response_preview = context.responseContent.preview;
+      fields.response_truncated = context.responseContent.truncated ?? false;
+    }
+  }
+
+  return fields;
+}
+
+export function annotateRequestLogRequest(
+  request: FastifyRequest,
+  text: string,
+  logging: BridgeConfig['logging'],
+) {
+  annotateRequestLogContext(request, {
+    requestContent: summarizeLogText(text, logging),
+  });
+}
+
+export function annotateRequestLogResponse(
+  request: FastifyRequest,
+  text: string,
+  logging: BridgeConfig['logging'],
+) {
+  annotateRequestLogContext(request, {
+    responseContent: summarizeLogText(text, logging),
+  });
+}
+
+export function registerRequestLogging(
+  app: FastifyInstance,
+  logger: LoggerLike,
+  logging: BridgeConfig['logging'],
+) {
   const requestStartedAt = new WeakMap<FastifyRequest, bigint>();
 
   app.addHook('onRequest', (request, _reply, done) => {
@@ -69,6 +125,7 @@ export function registerRequestLogging(app: FastifyInstance, logger: LoggerLike)
       session_id: headerValueToString(reply.getHeader('x-session-id')),
       thread_id: headerValueToString(reply.getHeader('x-codex-thread-id')),
       model: extractRequestModel(request),
+      ...buildContentFields(request, reply.statusCode, logging),
     });
     requestLogContext.delete(request);
     done();

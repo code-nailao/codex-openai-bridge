@@ -134,6 +134,7 @@
 - 默认 `sandbox=read-only`
 - 默认 `approval=never`
 - 默认不记录 prompt 正文
+- 内容日志必须显式开启，并且只能记录脱敏、截断后的预览
 - 默认 workspace 限制在 allowlist 根目录内
 - 发现 approval 事件时，返回明确错误，不让请求悬挂
 

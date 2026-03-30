@@ -114,6 +114,8 @@ npm run dev
 - `BRIDGE_ALLOWED_CWD_ROOTS`：可选 cwd allowlist，逗号分隔
 - `BRIDGE_LOG_MODE`：日志模式，默认 `dev-file`
 - `BRIDGE_LOG_DIR`：日志根目录，默认 `log/dev`
+- `BRIDGE_LOG_CONTENT_MODE`：内容日志模式，默认 `none`；可选 `errors-only`、`full`
+- `BRIDGE_LOG_MAX_CONTENT_CHARS`：内容日志预览最大字符数，默认 `2000`
 - `BRIDGE_DISABLE_AUTH=true`：仅限本地受控环境调试时关闭鉴权
 - 模型选择不写在 env；每次请求可以显式传 `model`，不传时默认 `gpt-5.4`
 - `reasoning_effort` 不写在 env；每次请求可以显式传值，不传时默认 `medium`
@@ -180,7 +182,8 @@ curl http://127.0.0.1:8787/v1/responses \
 - 只监听 `127.0.0.1:8787`
 - 默认要求 `Authorization: Bearer <LOCAL_BRIDGE_API_KEY>`
 - 默认 `sandbox=read-only` 与 `approval=never`
-- 默认不记录 prompt 正文，只记录最小化运维日志
+- 默认只记录最小化运维日志与请求/响应长度统计，不记录 prompt / response 正文
+- 需要排障时可显式开启 `BRIDGE_LOG_CONTENT_MODE=errors-only|full`；预览内容会先脱敏，再按 `BRIDGE_LOG_MAX_CONTENT_CHARS` 截断
 - 默认以 JSON lines 写本地开发日志到 `log/dev/yy-mm/yy-mm-dd.log`
 - 默认工作目录落在隔离子目录 `.codex-openai-bridge/workspaces/default-chat`；`x-codex-cwd` 默认关闭
 - 这更准确地说是本地兼容桥，不是面向公网的通用反代；一旦暴露到 localhost 之外，风险会显著上升

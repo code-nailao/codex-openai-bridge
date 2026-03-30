@@ -10,6 +10,7 @@ export async function streamChatCompletion(options: {
   created: number;
 }) {
   let sentRoleChunk = false;
+  let accumulatedText = '';
 
   for await (const event of options.events) {
     if (event.type === 'message_delta') {
@@ -35,6 +36,7 @@ export async function streamChatCompletion(options: {
           delta: { content: event.text },
         }),
       );
+      accumulatedText += event.text;
       continue;
     }
 
@@ -73,4 +75,5 @@ export async function streamChatCompletion(options: {
   }
 
   options.stream.write('data: [DONE]\n\n');
+  return accumulatedText;
 }

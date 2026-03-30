@@ -19,10 +19,15 @@ const envSchema = z.object({
   BRIDGE_ALLOWED_CWD_ROOTS: z.string().optional(),
   BRIDGE_LOG_MODE: z.enum(['dev-file', 'stdout', 'silent']).optional(),
   BRIDGE_LOG_DIR: z.string().optional(),
+  BRIDGE_LOG_CONTENT_MODE: z.enum(['none', 'errors-only', 'full']).optional(),
+  BRIDGE_LOG_MAX_CONTENT_CHARS: z.coerce.number().int().min(1).optional(),
 });
 
 const DEFAULT_WORKSPACE_ROOT = '.codex-openai-bridge/workspaces/default-chat';
 const DEFAULT_DEV_LOG_DIR = 'log/dev';
+const DEFAULT_LOG_CONTENT_CHARS = 2000;
+
+export type BridgeLogContentMode = 'none' | 'errors-only' | 'full';
 
 export type BridgeConfig = {
   service: {
@@ -51,6 +56,8 @@ export type BridgeConfig = {
   logging: {
     mode: 'dev-file' | 'stdout' | 'silent';
     dir: string;
+    contentMode: BridgeLogContentMode;
+    maxContentChars: number;
   };
 };
 
@@ -139,6 +146,8 @@ export function loadEnvConfig(
     logging: {
       mode: parsedEnv.BRIDGE_LOG_MODE ?? 'dev-file',
       dir: resolve(parsedEnv.BRIDGE_LOG_DIR ?? DEFAULT_DEV_LOG_DIR),
+      contentMode: parsedEnv.BRIDGE_LOG_CONTENT_MODE ?? 'none',
+      maxContentChars: parsedEnv.BRIDGE_LOG_MAX_CONTENT_CHARS ?? DEFAULT_LOG_CONTENT_CHARS,
     },
   };
 }

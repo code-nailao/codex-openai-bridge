@@ -72,4 +72,6 @@ export async function streamResponses(options: {
       createdAt: options.createdAt,
     }),
   });
+
+  return accumulatedText;
 }

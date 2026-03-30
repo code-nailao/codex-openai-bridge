@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import type { RuntimeLike, RuntimeRunParams, RuntimeRunResult, RuntimeStreamResult } from '../src/contracts/runtime.js';
 import { BridgeLogger, type LoggerLike } from '../src/observability/bridge-logger.js';
 import { FileLogSink, resolveDevLogFilePath } from '../src/observability/file-log-sink.js';
 import { buildTestApp } from './helpers/test-server.js';
@@ -35,6 +36,25 @@ class MemoryLogger implements LoggerLike {
   }
 
   public close() {}
+}
+
+class RejectingRuntime implements RuntimeLike {
+  public readonly runCalls: RuntimeRunParams[] = [];
+  public readonly runStreamedCalls: RuntimeRunParams[] = [];
+
+  public constructor(private readonly error: Error) {}
+
+  public async run(params: RuntimeRunParams): Promise<RuntimeRunResult> {
+    this.runCalls.push(params);
+    await Promise.reject(this.error);
+    throw this.error;
+  }
+
+  public async runStreamed(params: RuntimeRunParams): Promise<RuntimeStreamResult> {
+    this.runStreamedCalls.push(params);
+    await Promise.reject(this.error);
+    throw this.error;
+  }
 }
 
 describe('dev file logging', () => {
@@ -166,5 +186,163 @@ describe('dev file logging', () => {
     expect(serializedEntries).not.toContain('super-secret-prompt-value');
     expect(serializedEntries).not.toContain('messages');
     expect(serializedEntries).not.toContain('input');
+  });
+
+  it('logs redacted content previews when full content logging is enabled', async () => {
+    const logger = new MemoryLogger();
+    const runtime = new FakeRuntime(
+      {
+        threadId: 'thread-log-content-full',
+        finalResponse: 'token=reply-secret with a deliberately long response tail',
+        items: [],
+        usage: null,
+      },
+      {
+        threadId: 'thread-log-content-full',
+        events: (async function* () {
+          await Promise.resolve();
+          yield* [];
+        })(),
+      },
+    );
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+        BRIDGE_LOG_CONTENT_MODE: 'full',
+        BRIDGE_LOG_MAX_CONTENT_CHARS: '48',
+      },
+      runtime,
+      logger,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: {
+        messages: [{ role: 'user', content: 'Authorization: Bearer super-secret-token and extra trailing text' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const requestLog = logger.entries.find((entry) => entry.event === 'http_request');
+
+    expect(requestLog).toMatchObject({
+      level: 'info',
+      event: 'http_request',
+      status_code: 200,
+      request_truncated: true,
+      response_truncated: true,
+    });
+    expect(requestLog?.request_chars).toEqual(expect.any(Number));
+    expect(requestLog?.request_preview).toEqual(expect.any(String));
+    expect(requestLog?.response_chars).toEqual(expect.any(Number));
+    expect(requestLog?.response_preview).toEqual(expect.any(String));
+
+    const serializedEntries = JSON.stringify(logger.entries);
+    expect(serializedEntries).toContain('Bearer [REDACTED]');
+    expect(serializedEntries).toContain('token=[REDACTED]');
+    expect(serializedEntries).not.toContain('super-secret-token');
+    expect(serializedEntries).not.toContain('reply-secret');
+  });
+
+  it('logs the final streamed response preview when full content logging is enabled', async () => {
+    const logger = new MemoryLogger();
+    const runtime = new FakeRuntime(
+      {
+        threadId: 'thread-log-stream',
+        finalResponse: 'unused',
+        items: [],
+        usage: null,
+      },
+      {
+        threadId: 'thread-log-stream',
+        events: (async function* () {
+          await Promise.resolve();
+          yield { type: 'thread.started', thread_id: 'thread-log-stream' };
+          yield {
+            type: 'item.completed',
+            item: {
+              id: 'item-stream',
+              type: 'agent_message',
+              text: 'stream-token=secret-value',
+            },
+          };
+          yield {
+            type: 'turn.completed',
+            usage: { input_tokens: 1, cached_input_tokens: 0, output_tokens: 1 },
+          };
+        })(),
+      },
+    );
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+        BRIDGE_LOG_CONTENT_MODE: 'full',
+      },
+      runtime,
+      logger,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: {
+        stream: true,
+        messages: [{ role: 'user', content: 'stream please' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const requestLog = logger.entries.find((entry) => entry.event === 'http_request');
+
+    expect(requestLog).toMatchObject({
+      level: 'info',
+      event: 'http_request',
+      status_code: 200,
+      response_chars: 'stream-token=secret-value'.length,
+      response_preview: 'stream-token=[REDACTED]',
+      response_truncated: false,
+    });
+  });
+
+  it('only logs content previews for failed requests when errors-only mode is enabled', async () => {
+    const logger = new MemoryLogger();
+    const runtime = new RejectingRuntime(new Error('approval required: token=error-secret'));
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+        BRIDGE_LOG_CONTENT_MODE: 'errors-only',
+      },
+      runtime,
+      logger,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: {
+        messages: [{ role: 'user', content: 'password=super-secret-request' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    const requestLog = logger.entries.find((entry) => entry.event === 'http_request');
+
+    expect(requestLog).toMatchObject({
+      level: 'info',
+      event: 'http_request',
+      status_code: 409,
+      response_preview: 'approval required: token=[REDACTED]',
+    });
+    expect(requestLog?.request_chars).toEqual(expect.any(Number));
+    expect(requestLog?.request_preview).toEqual(expect.any(String));
+
+    const serializedEntries = JSON.stringify(logger.entries);
+    expect(serializedEntries).toContain('password=[REDACTED]');
+    expect(serializedEntries).not.toContain('super-secret-request');
+    expect(serializedEntries).not.toContain('error-secret');
   });
 });

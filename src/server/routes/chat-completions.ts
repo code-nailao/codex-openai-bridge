@@ -1,7 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 
 import { mapUsage, normalizeChatRequest, toChatCompletionResponse } from '../../adapters/chat-adapter.js';
-import { annotateRequestLogContext } from '../../observability/request-logging.js';
+import {
+  annotateRequestLogContext,
+  annotateRequestLogRequest,
+  annotateRequestLogResponse,
+} from '../../observability/request-logging.js';
 import { readOptionalHeader } from '../request-headers.js';
 import { createRequestAbortController, createStreamErrorBody } from '../route-support.js';
 import { writeSseData } from '../sse/sse-stream.js';
@@ -20,6 +24,7 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
     annotateRequestLogContext(request, {
       model: normalizedRequest.model.id,
     });
+    annotateRequestLogRequest(request, normalizedRequest.input, services.config.logging);
     const requestedSessionId = readOptionalHeader(request, 'x-session-id');
     const sessionId = requestedSessionId ?? createSessionId();
 
@@ -46,6 +51,7 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
           modelId: normalizedRequest.model.id,
           workspaceCwd: workingDirectory,
         });
+        annotateRequestLogResponse(request, result.finalResponse, services.config.logging);
 
         return toChatCompletionResponse({
           model: normalizedRequest.model.id,
@@ -76,15 +82,18 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
 
       void (async () => {
         try {
-          await streamChatCompletion({
+          const finalText = await streamChatCompletion({
             stream,
             events: normalizedStream.events,
             responseId,
             model: normalizedRequest.model.id,
             created,
           });
+          annotateRequestLogResponse(request, finalText, services.config.logging);
         } catch (error) {
-          writeSseData(stream, createStreamErrorBody(error));
+          const errorBody = createStreamErrorBody(error);
+          annotateRequestLogResponse(request, errorBody.error.message, services.config.logging);
+          writeSseData(stream, errorBody);
         } finally {
           close();
         }

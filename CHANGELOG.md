@@ -11,6 +11,7 @@
 - 新增优化实施计划文档 `docs/plans/2026-03-31-v1-optimization.md`
 - 新增本地开发日志能力，默认按 `log/dev/yy-mm/yy-mm-dd.log` 写 JSON lines
 - 新增主动健康检查：`/healthz` 现在覆盖 SQLite 可用性与缓存后的 `codex --version` 状态
+- 新增可控内容日志策略：支持 `BRIDGE_LOG_CONTENT_MODE=errors-only|full` 与 `BRIDGE_LOG_MAX_CONTENT_CHARS`
 
 ### Changed
 
@@ -20,6 +21,7 @@
 - 缺省 `CODEX_WORKSPACE_ROOT` 调整为隔离子目录 `.codex-openai-bridge/workspaces/default-chat`，更适合纯对话型本地 sidecar
 - 收口流式文本归一化，避免 early provisional snapshot 被后续修订时向客户端重复暴露
 - 抽取共享 request execution helper，降低 `chat` 与 `responses` route 的重复编排逻辑
+- 默认日志收口为“元数据 + 长度统计”；显式开启内容日志时仅记录脱敏且截断后的请求/响应预览
 
 ## [0.1.0] - 2026-03-30
 
