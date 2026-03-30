@@ -2,6 +2,11 @@ import type { AgentMessageItem, ThreadErrorEvent, ThreadEvent, TurnFailedEvent }
 
 import type { NormalizedRuntimeEvent } from '../contracts/runtime.js';
 
+type MessageState = {
+  bufferedText: string;
+  emittedText: string;
+};
+
 function isApprovalRequired(message: string): boolean {
   return /approval required/i.test(message);
 }
@@ -11,16 +16,18 @@ function isAgentMessageItem(item: unknown): item is AgentMessageItem {
 }
 
 export class EventNormalizer {
-  private readonly messageState = new Map<string, string>();
+  private readonly messageState = new Map<string, MessageState>();
 
   public normalize(event: ThreadEvent): NormalizedRuntimeEvent[] {
     switch (event.type) {
       case 'thread.started':
         return [{ type: 'run_started', threadId: event.thread_id }];
       case 'item.started':
+        return this.captureStartedMessage(event.item);
       case 'item.updated':
+        return this.normalizeItemEvent(event.item, false);
       case 'item.completed':
-        return this.normalizeItemEvent(event.item, event.type === 'item.completed');
+        return this.normalizeItemEvent(event.item, true);
       case 'turn.completed':
         return [{ type: 'run_completed', usage: event.usage }];
       case 'turn.failed':
@@ -34,27 +41,51 @@ export class EventNormalizer {
     }
   }
 
+  private captureStartedMessage(item: unknown): NormalizedRuntimeEvent[] {
+    if (!isAgentMessageItem(item)) {
+      return [];
+    }
+
+    this.messageState.set(item.id, {
+      bufferedText: item.text,
+      emittedText: '',
+    });
+
+    return [];
+  }
+
   private normalizeItemEvent(item: unknown, isCompleted: boolean): NormalizedRuntimeEvent[] {
     if (!isAgentMessageItem(item)) {
       return [];
     }
 
-    const previousText = this.messageState.get(item.id) ?? '';
+    const state = this.messageState.get(item.id) ?? {
+      bufferedText: '',
+      emittedText: '',
+    };
     const nextText = item.text;
     const events: NormalizedRuntimeEvent[] = [];
-    const delta = this.computeDelta(previousText, nextText);
 
-    if (delta) {
-      events.push({ type: 'message_delta', text: delta });
+    const bufferedDelta = this.computeBufferedDelta(state, nextText);
+    if (bufferedDelta) {
+      events.push({ type: 'message_delta', text: bufferedDelta });
+      state.emittedText += bufferedDelta;
     }
-
-    this.messageState.set(item.id, nextText);
 
     if (isCompleted) {
+      const completionDelta = this.computeCompletionDelta(state.emittedText, nextText);
+      if (completionDelta) {
+        events.push({ type: 'message_delta', text: completionDelta });
+        state.emittedText += completionDelta;
+      }
+
       events.push({ type: 'message_done', text: nextText });
       this.messageState.delete(item.id);
+      return events;
     }
 
+    state.bufferedText = nextText;
+    this.messageState.set(item.id, state);
     return events;
   }
 
@@ -74,15 +105,34 @@ export class EventNormalizer {
     return [{ type: 'run_failed', message: event.message }];
   }
 
-  private computeDelta(previousText: string, nextText: string): string {
-    if (!nextText) {
+  private computeBufferedDelta(state: MessageState, nextText: string): string {
+    const { bufferedText, emittedText } = state;
+    if (!bufferedText) {
       return '';
     }
 
-    if (nextText.startsWith(previousText)) {
-      return nextText.slice(previousText.length);
+    if (!nextText.startsWith(bufferedText)) {
+      return '';
     }
 
-    return nextText;
+    if (!bufferedText.startsWith(emittedText)) {
+      return '';
+    }
+
+    return bufferedText.slice(emittedText.length);
+  }
+
+  private computeCompletionDelta(emittedText: string, finalText: string): string {
+    if (!finalText) {
+      return '';
+    }
+
+    if (finalText.startsWith(emittedText)) {
+      return finalText.slice(emittedText.length);
+    }
+
+    // OpenAI-compatible SSE is append-only; once earlier bytes are exposed we cannot
+    // safely rewrite them if the upstream runtime later revises the text.
+    return '';
   }
 }

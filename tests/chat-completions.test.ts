@@ -194,6 +194,57 @@ describe('POST /v1/chat/completions', () => {
     expect(response.body).toContain('data: [DONE]');
   });
 
+  it('does not duplicate provisional text when the runtime revises an early stream snapshot', async () => {
+    const runtime = new FakeRuntime(
+      {
+        threadId: 'thread-chat-revision',
+        finalResponse: 'unused',
+        items: [],
+        usage: null,
+      },
+      {
+        threadId: null,
+        events: createStream([
+          { type: 'thread.started', thread_id: 'thread-chat-revision' },
+          { type: 'item.started', item: agentMessage('msg-1', 'He') },
+          { type: 'item.updated', item: agentMessage('msg-1', 'Hi') },
+          { type: 'item.completed', item: agentMessage('msg-1', 'Hi') },
+          {
+            type: 'turn.completed',
+            usage: {
+              input_tokens: 10,
+              cached_input_tokens: 0,
+              output_tokens: 2,
+            },
+          },
+        ]),
+      },
+    );
+
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+      },
+      runtime,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: {
+        model: 'gpt-5.4',
+        stream: true,
+        messages: [{ role: 'user', content: 'Say hi.' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain('"content":"Hi"');
+    expect(response.body).not.toContain('"content":"He"');
+    expect(response.body).toContain('data: [DONE]');
+  });
+
   it('rejects unsupported tool inputs with a 422 OpenAI-style error body', async () => {
     const runtime = new FakeRuntime(
       {
