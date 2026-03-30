@@ -25,6 +25,7 @@
 - 当前阶段：`V1 implemented`
 - 当前仓库内容：可运行服务、契约测试、开发文档、roadmap 与协作规范
 - 已验证：`chat.completions` / `responses` / `models` / `healthz`，以及 OpenAI SDK `baseURL` 模式 smoke test
+- 默认本地日志：`log/dev/yy-mm/yy-mm-dd.log`
 
 ## 核心特性
 
@@ -42,7 +43,7 @@
 | `POST /v1/chat/completions` | OpenAI-compatible chat surface，支持文本输入、流式与非流式 | implemented |
 | `POST /v1/responses` | OpenAI-compatible responses surface，承担 thread 续接主路径 | implemented |
 | `GET /v1/models` | 返回本地桥接允许的直接模型 id 列表 | implemented |
-| `GET /healthz` | 健康检查：HTTP 存活与最小运行状态 | implemented |
+| `GET /healthz` | 健康检查：HTTP 存活、SQLite 可用性与缓存后的 `codex --version` 状态 | implemented |
 
 ### 请求头契约
 
@@ -111,6 +112,8 @@ npm run dev
 - `CODEX_WORKSPACE_ROOT`：可选工作目录根；缺省时落到 `.codex-openai-bridge/workspaces/default-chat`
 - `BRIDGE_ENABLE_CWD_OVERRIDE`：是否允许 `x-codex-cwd`
 - `BRIDGE_ALLOWED_CWD_ROOTS`：可选 cwd allowlist，逗号分隔
+- `BRIDGE_LOG_MODE`：日志模式，默认 `dev-file`
+- `BRIDGE_LOG_DIR`：日志根目录，默认 `log/dev`
 - `BRIDGE_DISABLE_AUTH=true`：仅限本地受控环境调试时关闭鉴权
 - 模型选择不写在 env；每次请求可以显式传 `model`，不传时默认 `gpt-5.4`
 - `reasoning_effort` 不写在 env；每次请求可以显式传值，不传时默认 `medium`
@@ -178,6 +181,7 @@ curl http://127.0.0.1:8787/v1/responses \
 - 默认要求 `Authorization: Bearer <LOCAL_BRIDGE_API_KEY>`
 - 默认 `sandbox=read-only` 与 `approval=never`
 - 默认不记录 prompt 正文，只记录最小化运维日志
+- 默认以 JSON lines 写本地开发日志到 `log/dev/yy-mm/yy-mm-dd.log`
 - 默认工作目录落在隔离子目录 `.codex-openai-bridge/workspaces/default-chat`；`x-codex-cwd` 默认关闭
 - 这更准确地说是本地兼容桥，不是面向公网的通用反代；一旦暴露到 localhost 之外，风险会显著上升
 - 如果 Codex 仍触发审批事件，桥接层返回明确错误，而不是把 HTTP 请求挂死
@@ -195,10 +199,12 @@ curl http://127.0.0.1:8787/v1/responses \
 ```text
 src/
   adapters/
+  observability/
   config/
   contracts/
   runtime/
   server/
+  services/
   store/
   utils/
 tests/

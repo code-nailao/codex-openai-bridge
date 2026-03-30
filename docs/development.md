@@ -49,6 +49,10 @@ src/
     event-normalizer.ts
     responses-adapter.ts
     usage.ts
+  observability/
+    bridge-logger.ts
+    file-log-sink.ts
+    request-logging.ts
   config/
     env.ts
     models.ts
@@ -68,6 +72,8 @@ src/
     request-headers.ts
     session-resolution.ts
     workspace.ts
+  services/
+    health-service.ts
   store/
     locks.ts
     session-store.ts
@@ -125,6 +131,8 @@ CLI 启动入口默认读取仓库根目录 `.env`；显式传入 `env` 的 prog
 - `CODEX_WORKSPACE_ROOT`：可选工作目录根；缺省时落到 `.codex-openai-bridge/workspaces/default-chat`
 - `BRIDGE_ENABLE_CWD_OVERRIDE`：是否允许 `x-codex-cwd`
 - `BRIDGE_ALLOWED_CWD_ROOTS`：cwd allowlist
+- `BRIDGE_LOG_MODE`：日志模式，默认 `dev-file`
+- `BRIDGE_LOG_DIR`：日志根目录，默认 `log/dev`
 
 原则：
 
@@ -209,6 +217,7 @@ HTTP 层不负责：
 ### `GET /healthz`
 
 - 返回最小健康信息
+- 覆盖 SQLite 可用性与缓存后的 `codex --version` 状态
 - 不触发真实推理
 
 ## SSE 处理原则
@@ -218,6 +227,7 @@ HTTP 层不负责：
 - 每 `15s` 发送 heartbeat，降低代理断连风险
 - 客户端断开连接时，通过 `AbortController` 取消底层 run
 - 流式输出是消息片段级 diff，不承诺 token 级逐字流
+- 当底层 runtime 早期片段被后续快照修订时，桥接层会尽量避免把 provisional 文本重复暴露给客户端
 
 ## 错误映射原则
 
@@ -268,6 +278,13 @@ HTTP 层不负责：
 - prompt 正文
 - 完整响应正文
 - 未脱敏环境变量
+
+当前默认本地开发日志布局：
+
+- 根目录：`log/dev`
+- 月目录：`log/dev/yy-mm`
+- 日志文件：`log/dev/yy-mm/yy-mm-dd.log`
+- 格式：每行一条 JSON
 
 ## 测试门槛
 

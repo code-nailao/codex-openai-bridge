@@ -8,6 +8,9 @@
 
 - 新增根级 `.env.example`，提供本地启动配置模板
 - 服务启动入口新增根级 `.env` 自动加载能力，且显式传入的环境变量优先级更高
+- 新增优化实施计划文档 `docs/plans/2026-03-31-v1-optimization.md`
+- 新增本地开发日志能力，默认按 `log/dev/yy-mm/yy-mm-dd.log` 写 JSON lines
+- 新增主动健康检查：`/healthz` 现在覆盖 SQLite 可用性与缓存后的 `codex --version` 状态
 
 ### Changed
 
@@ -15,6 +18,8 @@
 - 同步更新 README、development guide 与 roadmap 中的模型与配置说明
 - 为 `chat/completions` 与 `responses` 收口默认请求语义：缺省 `model` 自动补 `gpt-5.4`，缺省 `reasoning_effort` 自动补 `medium`
 - 缺省 `CODEX_WORKSPACE_ROOT` 调整为隔离子目录 `.codex-openai-bridge/workspaces/default-chat`，更适合纯对话型本地 sidecar
+- 收口流式文本归一化，避免 early provisional snapshot 被后续修订时向客户端重复暴露
+- 抽取共享 request execution helper，降低 `chat` 与 `responses` route 的重复编排逻辑
 
 ## [0.1.0] - 2026-03-30
 
