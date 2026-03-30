@@ -284,6 +284,10 @@ HTTP 层不负责：
 - `error_type`
 - `error_code`
 
+补充约束：
+
+- 流式与非流式请求都必须在 run 结束后补齐 token usage，不能因为 SSE 路径而丢失 `input_tokens` / `output_tokens` / `total_tokens`
+
 默认不记录：
 
 - prompt 正文

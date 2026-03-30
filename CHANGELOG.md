@@ -23,6 +23,7 @@
 - 抽取共享 request execution helper，降低 `chat` 与 `responses` route 的重复编排逻辑
 - 默认日志收口为“元数据 + 长度统计”；显式开启内容日志时仅记录脱敏且截断后的请求/响应预览
 - 默认运维日志补充 `stream`、`reasoning_effort`、token usage 与稳定错误码，提升本地排障信息密度
+- 修复流式请求日志的 usage 缺口，保证 SSE 路径在完成后也能记录 token usage
 
 ## [0.1.0] - 2026-03-30
 
