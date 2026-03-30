@@ -1,3 +1,5 @@
+import { resolve } from 'node:path';
+
 import packageJson from '../../package.json' with { type: 'json' };
 import { z } from 'zod';
 
@@ -10,6 +12,10 @@ const envSchema = z.object({
   LOCAL_BRIDGE_API_KEY: z.string().min(1).optional(),
   BRIDGE_DISABLE_AUTH: z.enum(['true', 'false', '1', '0']).optional(),
   CODEX_MODEL: z.string().default('gpt-5-codex'),
+  SQLITE_PATH: z.string().optional(),
+  CODEX_WORKSPACE_ROOT: z.string().optional(),
+  BRIDGE_ENABLE_CWD_OVERRIDE: z.enum(['true', 'false', '1', '0']).optional(),
+  BRIDGE_ALLOWED_CWD_ROOTS: z.string().optional(),
 });
 
 export type BridgeConfig = {
@@ -25,17 +31,38 @@ export type BridgeConfig = {
     enabled: boolean;
     apiKey: string | null;
   };
+  storage: {
+    dbPath: string;
+  };
+  workspace: {
+    root: string;
+    allowHeaderOverride: boolean;
+    allowedRoots: string[];
+  };
   runtimePolicy: RuntimePolicy;
   models: ModelAlias[];
 };
 
-function isAuthDisabled(rawValue: string | undefined): boolean {
+function isEnabled(rawValue: string | undefined): boolean {
   return rawValue === 'true' || rawValue === '1';
+}
+
+function resolveWorkspaceConfig(parsedEnv: z.infer<typeof envSchema>): BridgeConfig['workspace'] {
+  const root = resolve(parsedEnv.CODEX_WORKSPACE_ROOT ?? process.cwd());
+  const allowedRoots = parsedEnv.BRIDGE_ALLOWED_CWD_ROOTS
+    ? parsedEnv.BRIDGE_ALLOWED_CWD_ROOTS.split(',').map((entry) => resolve(entry.trim())).filter(Boolean)
+    : [root];
+
+  return {
+    root,
+    allowHeaderOverride: isEnabled(parsedEnv.BRIDGE_ENABLE_CWD_OVERRIDE),
+    allowedRoots,
+  };
 }
 
 export function loadEnvConfig(env: NodeJS.ProcessEnv = process.env): BridgeConfig {
   const parsedEnv = envSchema.parse(env);
-  const authEnabled = !isAuthDisabled(parsedEnv.BRIDGE_DISABLE_AUTH);
+  const authEnabled = !isEnabled(parsedEnv.BRIDGE_DISABLE_AUTH);
 
   if (authEnabled && !parsedEnv.LOCAL_BRIDGE_API_KEY) {
     throw new Error('LOCAL_BRIDGE_API_KEY is required when auth is enabled.');
@@ -54,6 +81,10 @@ export function loadEnvConfig(env: NodeJS.ProcessEnv = process.env): BridgeConfi
       enabled: authEnabled,
       apiKey: parsedEnv.LOCAL_BRIDGE_API_KEY ?? null,
     },
+    storage: {
+      dbPath: resolve(parsedEnv.SQLITE_PATH ?? '.codex-openai-bridge/bridge.sqlite'),
+    },
+    workspace: resolveWorkspaceConfig(parsedEnv),
     runtimePolicy: createRuntimePolicy(),
     models: createModelCatalog(parsedEnv.CODEX_MODEL),
   };

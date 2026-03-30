@@ -1,3 +1,6 @@
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
+
 import Database from 'better-sqlite3';
 
 export type SessionRecord = {
@@ -19,6 +22,7 @@ export class SessionStore {
   private readonly db: Database.Database;
 
   public constructor(options: { dbPath: string }) {
+    mkdirSync(dirname(options.dbPath), { recursive: true });
     this.db = new Database(options.dbPath);
     this.db.pragma('journal_mode = WAL');
     this.initializeSchema();

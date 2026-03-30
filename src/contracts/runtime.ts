@@ -46,3 +46,8 @@ export type RuntimeStreamResult = {
   threadId: string | null;
   events: AsyncGenerator<ThreadEvent>;
 };
+
+export interface RuntimeLike {
+  run(params: RuntimeRunParams): Promise<RuntimeRunResult>;
+  runStreamed(params: RuntimeRunParams): Promise<RuntimeStreamResult>;
+}
