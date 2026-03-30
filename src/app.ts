@@ -1,21 +1,25 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 
-import packageJson from '../package.json' with { type: 'json' };
+import { loadEnvConfig } from './config/env.js';
+import { registerModelsRoute } from './server/routes/models.js';
 
-export async function createApp(): Promise<FastifyInstance> {
+export async function createApp(options?: { env?: NodeJS.ProcessEnv }): Promise<FastifyInstance> {
+  const config = loadEnvConfig(options?.env);
   const app = Fastify({
     logger: false,
   });
 
   app.get('/healthz', () => ({
     status: 'ok',
-    service: 'codex-openai-bridge',
-    version: packageJson.version,
+    service: config.service.name,
+    version: config.service.version,
     checks: {
       sqlite: 'unknown',
       codex_cli: 'unknown',
     },
   }));
+
+  registerModelsRoute(app, config);
 
   return app;
 }

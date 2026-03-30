@@ -10,7 +10,11 @@ afterEach(async () => {
 
 describe('GET /healthz', () => {
   it('returns service metadata and health status', async () => {
-    const app = await buildTestApp();
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+      },
+    });
     openApps.push(app);
 
     const response = await app.inject({
