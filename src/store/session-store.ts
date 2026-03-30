@@ -130,6 +130,10 @@ export class SessionStore {
     this.db.close();
   }
 
+  public ping() {
+    this.db.prepare('SELECT 1').get();
+  }
+
   private initializeSchema() {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS sessions (

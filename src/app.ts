@@ -4,7 +4,11 @@ import Fastify, { type FastifyInstance } from 'fastify';
 
 import { loadEnvConfig, type BridgeConfig } from './config/env.js';
 import type { RuntimeLike } from './contracts/runtime.js';
+import { BridgeLogger, createNoopLogger, type LoggerLike } from './observability/bridge-logger.js';
+import { FileLogSink } from './observability/file-log-sink.js';
+import { registerRequestLogging } from './observability/request-logging.js';
 import { CodexRuntime } from './runtime/codex-runtime.js';
+import { HealthService, type HealthServiceLike } from './services/health-service.js';
 import { enforceRequestAuth } from './server/auth.js';
 import type { BridgeServices } from './server/bridge-context.js';
 import { mapErrorToResponse } from './server/errors/error-mapper.js';
@@ -22,7 +26,25 @@ export type CreateAppOptions = {
   runtime?: RuntimeLike;
   sessionStore?: SessionStore;
   lockManager?: SessionLockManager;
+  healthService?: HealthServiceLike;
+  logger?: LoggerLike;
 };
+
+function createLogger(config: BridgeConfig): LoggerLike {
+  switch (config.logging.mode) {
+    case 'silent':
+      return createNoopLogger();
+    case 'stdout':
+      return new BridgeLogger();
+    case 'dev-file':
+    default:
+      return new BridgeLogger({
+        sink: new FileLogSink({
+          rootDir: config.logging.dir,
+        }),
+      });
+  }
+}
 
 export async function createApp(options?: CreateAppOptions): Promise<FastifyInstance> {
   const config =
@@ -38,18 +60,22 @@ export async function createApp(options?: CreateAppOptions): Promise<FastifyInst
   const app = Fastify({
     logger: false,
   });
+  const logger = options?.logger ?? createLogger(config);
 
   let runtime = options?.runtime ?? null;
+  const sessionStore = options?.sessionStore ?? new SessionStore({ dbPath: config.storage.dbPath });
   const services: BridgeServices = {
     config,
     getRuntime() {
       runtime ??= new CodexRuntime();
       return runtime;
     },
-    sessionStore: options?.sessionStore ?? new SessionStore({ dbPath: config.storage.dbPath }),
+    sessionStore,
     lockManager: options?.lockManager ?? new SessionLockManager(),
+    healthService: options?.healthService ?? new HealthService({ config, sessionStore }),
   };
   const ownsSessionStore = !options?.sessionStore;
+  const ownsLogger = !options?.logger;
 
   app.addHook('onRequest', (request, reply, done) => {
     try {
@@ -59,6 +85,7 @@ export async function createApp(options?: CreateAppOptions): Promise<FastifyInst
       done(error as Error);
     }
   });
+  registerRequestLogging(app, logger);
 
   app.setErrorHandler((error, _request, reply) => {
     const response = mapErrorToResponse(error);
@@ -69,9 +96,12 @@ export async function createApp(options?: CreateAppOptions): Promise<FastifyInst
     if (ownsSessionStore) {
       services.sessionStore.close();
     }
+    if (ownsLogger) {
+      logger.close();
+    }
   });
 
-  registerHealthzRoute(app, config);
+  registerHealthzRoute(app, services.healthService);
   registerModelsRoute(app, config);
   registerChatCompletionsRoute(app, services);
   registerResponsesRoute(app, services);

@@ -19,6 +19,7 @@ function createEnv() {
   const tempDir = mkdtempSync(join(tmpdir(), 'codex-openai-bridge-compat-'));
   return {
     LOCAL_BRIDGE_API_KEY: 'compat-key',
+    BRIDGE_LOG_MODE: 'silent',
     SQLITE_PATH: join(tempDir, 'bridge.sqlite'),
   };
 }
