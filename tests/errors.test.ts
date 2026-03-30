@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import type { ThreadEvent } from '@openai/codex-sdk';
 
@@ -121,6 +124,96 @@ describe('error handling and auth', () => {
         type: 'invalid_request_error',
         code: 'invalid_request',
         param: 'previous_response_id',
+      },
+    });
+    expect(runtime.runCalls).toHaveLength(0);
+  });
+
+  it('accepts x-codex-cwd values that stay within an allowed nested root', async () => {
+    const workspaceRoot = mkdtempSync(join(tmpdir(), 'codex-openai-bridge-workspace-'));
+    const nestedWorkspace = join(workspaceRoot, 'nested', 'chat');
+    const runtime = new FakeRuntime(
+      {
+        threadId: 'thread-nested-workspace',
+        finalResponse: 'OK',
+        items: [],
+        usage: null,
+      },
+      {
+        threadId: 'thread-nested-workspace',
+        events: createEmptyEvents(),
+      },
+    );
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+        BRIDGE_ENABLE_CWD_OVERRIDE: 'true',
+        BRIDGE_ALLOWED_CWD_ROOTS: workspaceRoot,
+      },
+      runtime,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: {
+        'x-codex-cwd': nestedWorkspace,
+      },
+      payload: {
+        model: 'gpt-5.4',
+        messages: [{ role: 'user', content: 'Say OK.' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(runtime.runCalls[0]?.threadOptions?.workingDirectory).toBe(nestedWorkspace);
+  });
+
+  it('rejects x-codex-cwd values outside the configured allowlist', async () => {
+    const workspaceRoot = mkdtempSync(join(tmpdir(), 'codex-openai-bridge-workspace-'));
+    const outsideWorkspace = mkdtempSync(join(tmpdir(), 'codex-openai-bridge-outside-'));
+    const runtime = new FakeRuntime(
+      {
+        threadId: 'thread-outside-workspace',
+        finalResponse: 'unused',
+        items: [],
+        usage: null,
+      },
+      {
+        threadId: 'thread-outside-workspace',
+        events: createEmptyEvents(),
+      },
+    );
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+        BRIDGE_ENABLE_CWD_OVERRIDE: 'true',
+        BRIDGE_ALLOWED_CWD_ROOTS: workspaceRoot,
+      },
+      runtime,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: {
+        'x-codex-cwd': outsideWorkspace,
+      },
+      payload: {
+        model: 'gpt-5.4',
+        messages: [{ role: 'user', content: 'Say OK.' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: {
+        message: 'The requested x-codex-cwd path is outside the configured allowlist.',
+        type: 'invalid_request_error',
+        code: 'invalid_request',
+        param: 'x-codex-cwd',
       },
     });
     expect(runtime.runCalls).toHaveLength(0);

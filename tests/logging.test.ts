@@ -125,4 +125,46 @@ describe('dev file logging', () => {
       }),
     );
   });
+
+  it('does not leak prompt content into request logs', async () => {
+    const logger = new MemoryLogger();
+    const runtime = new FakeRuntime(
+      {
+        threadId: 'thread-log-redaction',
+        finalResponse: 'OK',
+        items: [],
+        usage: null,
+      },
+      {
+        threadId: 'thread-log-redaction',
+        events: (async function* () {
+          await Promise.resolve();
+          yield* [];
+        })(),
+      },
+    );
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+      },
+      runtime,
+      logger,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: {
+        messages: [{ role: 'user', content: 'super-secret-prompt-value' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const serializedEntries = JSON.stringify(logger.entries);
+
+    expect(serializedEntries).not.toContain('super-secret-prompt-value');
+    expect(serializedEntries).not.toContain('messages');
+    expect(serializedEntries).not.toContain('input');
+  });
 });
