@@ -1,4 +1,4 @@
-import { resolve } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
 
 import type { FastifyRequest } from 'fastify';
 
@@ -6,7 +6,10 @@ import type { BridgeConfig } from '../config/env.js';
 import { createInvalidRequestError } from './errors/bridge-error.js';
 
 function isWithinAllowedRoots(candidate: string, allowedRoots: string[]): boolean {
-  return allowedRoots.some((root) => candidate === root || candidate.startsWith(`${root}/`));
+  return allowedRoots.some((root) => {
+    const relation = relative(root, candidate);
+    return relation === '' || (!relation.startsWith('..') && !isAbsolute(relation));
+  });
 }
 
 export function resolveWorkingDirectory(config: BridgeConfig, request: FastifyRequest): string {

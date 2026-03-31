@@ -1,19 +1,21 @@
 import type { FastifyInstance } from 'fastify';
 
 import { mapUsage, normalizeChatRequest, toChatCompletionResponse } from '../../adapters/chat-adapter.js';
-import { normalizeRuntimeStream } from '../../runtime/normalized-stream.js';
-import { readOptionalHeader } from '../request-headers.js';
 import {
-  createRequestAbortController,
-  createStreamErrorBody,
-  ensureRuntimeThreadId,
-  setSessionResponseHeaders,
-} from '../route-support.js';
-import { createSseStream, startHeartbeat, writeSseData } from '../sse/sse-stream.js';
+  annotateRequestLogContext,
+  annotateRequestLogError,
+  annotateRequestLogRequest,
+  annotateRequestLogResponse,
+  annotateRequestLogUsage,
+} from '../../observability/request-logging.js';
+import { readOptionalHeader } from '../request-headers.js';
+import { createRequestAbortController, createStreamErrorBody } from '../route-support.js';
+import { writeSseData } from '../sse/sse-stream.js';
 import { streamChatCompletion } from '../sse/chat-stream.js';
 import type { BridgeServices } from '../bridge-context.js';
 import { resolveWorkingDirectory } from '../workspace.js';
 import { createSessionId } from '../../utils/ids.js';
+import { executeNonStreamRuntime, executeStreamRuntime, openStreamingReply, persistSessionContext } from '../request-execution.js';
 
 export function registerChatCompletionsRoute(app: FastifyInstance, services: BridgeServices) {
   app.post('/v1/chat/completions', async (request, reply) => {
@@ -21,6 +23,12 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
     const normalizedRequest = normalizeChatRequest(request.body, services.config, {
       workingDirectory,
     });
+    annotateRequestLogContext(request, {
+      model: normalizedRequest.model.id,
+      stream: normalizedRequest.stream,
+      reasoningEffort: normalizedRequest.reasoningEffort,
+    });
+    annotateRequestLogRequest(request, normalizedRequest.input, services.config.logging);
     const requestedSessionId = readOptionalHeader(request, 'x-session-id');
     const sessionId = requestedSessionId ?? createSessionId();
 
@@ -31,25 +39,24 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
       const abortController = createRequestAbortController(request);
 
       if (!normalizedRequest.stream) {
-        const result = await runtime.run({
+        const result = await executeNonStreamRuntime({
+          runtime,
           input: normalizedRequest.input,
           threadOptions: normalizedRequest.threadOptions,
           signal: abortController.signal,
-          ...(threadId ? { threadId } : {}),
+          threadId,
         });
-        const resolvedThreadId = ensureRuntimeThreadId(result.threadId);
 
-        services.sessionStore.upsertSession({
+        persistSessionContext({
+          sessionStore: services.sessionStore,
+          reply,
           sessionId,
-          threadId: resolvedThreadId,
+          threadId: result.threadId,
           modelId: normalizedRequest.model.id,
           workspaceCwd: workingDirectory,
         });
-
-        setSessionResponseHeaders(reply, {
-          sessionId,
-          threadId: resolvedThreadId,
-        });
+        annotateRequestLogUsage(request, result.usage);
+        annotateRequestLogResponse(request, result.finalResponse, services.config.logging);
 
         return toChatCompletionResponse({
           model: normalizedRequest.model.id,
@@ -58,44 +65,44 @@ export function registerChatCompletionsRoute(app: FastifyInstance, services: Bri
         });
       }
 
-      const runtimeStream = await runtime.runStreamed({
+      const normalizedStream = await executeStreamRuntime({
+        runtime,
         input: normalizedRequest.input,
         threadOptions: normalizedRequest.threadOptions,
         signal: abortController.signal,
-        ...(threadId ? { threadId } : {}),
+        threadId,
       });
-      const normalizedStream = await normalizeRuntimeStream(runtimeStream);
 
-      services.sessionStore.upsertSession({
+      persistSessionContext({
+        sessionStore: services.sessionStore,
+        reply,
         sessionId,
         threadId: normalizedStream.threadId,
         modelId: normalizedRequest.model.id,
         workspaceCwd: workingDirectory,
       });
-
-      setSessionResponseHeaders(reply, {
-        sessionId,
-        threadId: normalizedStream.threadId,
-      });
-      const stream = createSseStream(reply);
-      const stopHeartbeat = startHeartbeat(stream);
+      const { stream, close } = openStreamingReply(reply);
       const created = Math.floor(Date.now() / 1000);
       const responseId = `chatcmpl_${sessionId.replace(/^sess_/, '')}`;
 
       void (async () => {
         try {
-          await streamChatCompletion({
+          const streamedResult = await streamChatCompletion({
             stream,
             events: normalizedStream.events,
             responseId,
             model: normalizedRequest.model.id,
             created,
           });
+          annotateRequestLogUsage(request, streamedResult.usage);
+          annotateRequestLogResponse(request, streamedResult.text, services.config.logging);
         } catch (error) {
-          writeSseData(stream, createStreamErrorBody(error));
+          const errorBody = createStreamErrorBody(error);
+          annotateRequestLogError(request, errorBody.error);
+          annotateRequestLogResponse(request, errorBody.error.message, services.config.logging);
+          writeSseData(stream, errorBody);
         } finally {
-          stopHeartbeat();
-          stream.end();
+          close();
         }
       })();
 

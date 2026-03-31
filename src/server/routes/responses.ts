@@ -1,20 +1,22 @@
 import type { FastifyInstance } from 'fastify';
 
 import { createResponseObject, normalizeResponsesRequest } from '../../adapters/responses-adapter.js';
-import { normalizeRuntimeStream } from '../../runtime/normalized-stream.js';
-import { readOptionalHeader } from '../request-headers.js';
 import {
-  createRequestAbortController,
-  createStreamErrorBody,
-  ensureRuntimeThreadId,
-  setSessionResponseHeaders,
-} from '../route-support.js';
+  annotateRequestLogContext,
+  annotateRequestLogError,
+  annotateRequestLogRequest,
+  annotateRequestLogResponse,
+  annotateRequestLogUsage,
+} from '../../observability/request-logging.js';
+import { readOptionalHeader } from '../request-headers.js';
+import { createRequestAbortController, createStreamErrorBody } from '../route-support.js';
 import { resolveSessionContinuation } from '../session-resolution.js';
-import { createSseStream, startHeartbeat, writeNamedSseEvent } from '../sse/sse-stream.js';
+import { writeNamedSseEvent } from '../sse/sse-stream.js';
 import { streamResponses } from '../sse/responses-stream.js';
 import type { BridgeServices } from '../bridge-context.js';
 import { resolveWorkingDirectory } from '../workspace.js';
 import { createResponseId } from '../../utils/ids.js';
+import { executeNonStreamRuntime, executeStreamRuntime, openStreamingReply, persistSessionContext } from '../request-execution.js';
 
 export function registerResponsesRoute(app: FastifyInstance, services: BridgeServices) {
   app.post('/v1/responses', async (request, reply) => {
@@ -22,6 +24,12 @@ export function registerResponsesRoute(app: FastifyInstance, services: BridgeSer
     const normalizedRequest = normalizeResponsesRequest(request.body, services.config, {
       workingDirectory,
     });
+    annotateRequestLogContext(request, {
+      model: normalizedRequest.model.id,
+      stream: normalizedRequest.stream,
+      reasoningEffort: normalizedRequest.reasoningEffort,
+    });
+    annotateRequestLogRequest(request, normalizedRequest.input, services.config.logging);
     const requestedSessionId = readOptionalHeader(request, 'x-session-id');
     const resolvedSession = resolveSessionContinuation({
       sessionStore: services.sessionStore,
@@ -34,33 +42,32 @@ export function registerResponsesRoute(app: FastifyInstance, services: BridgeSer
       const abortController = createRequestAbortController(request);
 
       const runtimeParams = {
+        runtime,
         input: normalizedRequest.input,
         threadOptions: normalizedRequest.threadOptions,
         signal: abortController.signal,
-        ...(resolvedSession.threadId ? { threadId: resolvedSession.threadId } : {}),
+        threadId: resolvedSession.threadId,
       };
 
       if (!normalizedRequest.stream) {
-        const result = await runtime.run(runtimeParams);
-        const threadId = ensureRuntimeThreadId(result.threadId);
+        const result = await executeNonStreamRuntime(runtimeParams);
         const responseId = createResponseId();
 
-        services.sessionStore.upsertSession({
+        persistSessionContext({
+          sessionStore: services.sessionStore,
+          reply,
           sessionId: resolvedSession.sessionId,
-          threadId,
+          threadId: result.threadId,
           modelId: normalizedRequest.model.id,
           workspaceCwd: workingDirectory,
         });
         services.sessionStore.upsertResponse({
           responseId,
           sessionId: resolvedSession.sessionId,
-          threadId,
+          threadId: result.threadId,
         });
-
-        setSessionResponseHeaders(reply, {
-          sessionId: resolvedSession.sessionId,
-          threadId,
-        });
+        annotateRequestLogUsage(request, result.usage);
+        annotateRequestLogResponse(request, result.finalResponse, services.config.logging);
 
         return createResponseObject({
           responseId,
@@ -70,12 +77,13 @@ export function registerResponsesRoute(app: FastifyInstance, services: BridgeSer
         });
       }
 
-      const runtimeStream = await runtime.runStreamed(runtimeParams);
-      const normalizedStream = await normalizeRuntimeStream(runtimeStream);
+      const normalizedStream = await executeStreamRuntime(runtimeParams);
       const responseId = createResponseId();
       const createdAt = new Date();
 
-      services.sessionStore.upsertSession({
+      persistSessionContext({
+        sessionStore: services.sessionStore,
+        reply,
         sessionId: resolvedSession.sessionId,
         threadId: normalizedStream.threadId,
         modelId: normalizedRequest.model.id,
@@ -86,28 +94,26 @@ export function registerResponsesRoute(app: FastifyInstance, services: BridgeSer
         sessionId: resolvedSession.sessionId,
         threadId: normalizedStream.threadId,
       });
-
-      setSessionResponseHeaders(reply, {
-        sessionId: resolvedSession.sessionId,
-        threadId: normalizedStream.threadId,
-      });
-      const stream = createSseStream(reply);
-      const stopHeartbeat = startHeartbeat(stream);
+      const { stream, close } = openStreamingReply(reply);
 
       void (async () => {
         try {
-          await streamResponses({
+          const streamedResult = await streamResponses({
             stream,
             events: normalizedStream.events,
             responseId,
             model: normalizedRequest.model.id,
             createdAt,
           });
+          annotateRequestLogUsage(request, streamedResult.usage);
+          annotateRequestLogResponse(request, streamedResult.text, services.config.logging);
         } catch (error) {
-          writeNamedSseEvent(stream, 'error', createStreamErrorBody(error));
+          const errorBody = createStreamErrorBody(error);
+          annotateRequestLogError(request, errorBody.error);
+          annotateRequestLogResponse(request, errorBody.error.message, services.config.logging);
+          writeNamedSseEvent(stream, 'error', errorBody);
         } finally {
-          stopHeartbeat();
-          stream.end();
+          close();
         }
       })();
 

@@ -104,6 +104,7 @@
 - `adapters/`：OpenAI request normalization、response mapping、event normalization
 - `store/`：SQLite 持久化、session mapping、并发控制
 - `config/`：模型目录、运行策略、环境变量收敛
+- `observability/`：最小化日志、健康探针、诊断辅助能力
 - `tests/`：契约测试、适配层测试、兼容性测试、SSE 回归测试
 
 禁止把 HTTP、会话持久化、Codex runtime 和 OpenAI 适配逻辑揉进一个文件或一个“万能 service”。
@@ -133,6 +134,7 @@
 - 默认 `sandbox=read-only`
 - 默认 `approval=never`
 - 默认不记录 prompt 正文
+- 内容日志必须显式开启，并且只能记录脱敏、截断后的预览
 - 默认 workspace 限制在 allowlist 根目录内
 - 发现 approval 事件时，返回明确错误，不让请求悬挂
 
@@ -154,6 +156,14 @@ npm run build
 ```
 
 如果涉及 SSE、session 恢复、错误映射或兼容层行为变更，必须补对应契约测试或回归测试。
+
+## 外部评审门禁
+
+在具备外部评审条件时，默认要求把最终 diff 再交给 Claude Opus 4.6 做一次独立评估。
+
+- 外部评审结论不能直接盲从，必须结合仓库上下文重新验证
+- 发现阻塞性问题先修复，再进入 merge / release
+- 如果当前执行环境无法直接调用 Claude Opus 4.6，至少要保留可供外部评审的需求摘要、关键 diff 与验证结果
 
 ## Done 定义
 

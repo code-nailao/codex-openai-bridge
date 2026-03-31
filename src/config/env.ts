@@ -17,9 +17,17 @@ const envSchema = z.object({
   CODEX_WORKSPACE_ROOT: z.string().optional(),
   BRIDGE_ENABLE_CWD_OVERRIDE: z.enum(['true', 'false', '1', '0']).optional(),
   BRIDGE_ALLOWED_CWD_ROOTS: z.string().optional(),
+  BRIDGE_LOG_MODE: z.enum(['dev-file', 'stdout', 'silent']).optional(),
+  BRIDGE_LOG_DIR: z.string().optional(),
+  BRIDGE_LOG_CONTENT_MODE: z.enum(['none', 'errors-only', 'full']).optional(),
+  BRIDGE_LOG_MAX_CONTENT_CHARS: z.coerce.number().int().min(1).optional(),
 });
 
 const DEFAULT_WORKSPACE_ROOT = '.codex-openai-bridge/workspaces/default-chat';
+const DEFAULT_DEV_LOG_DIR = 'log/dev';
+const DEFAULT_LOG_CONTENT_CHARS = 2000;
+
+export type BridgeLogContentMode = 'none' | 'errors-only' | 'full';
 
 export type BridgeConfig = {
   service: {
@@ -45,6 +53,12 @@ export type BridgeConfig = {
   };
   runtimePolicy: RuntimePolicy;
   models: SupportedModel[];
+  logging: {
+    mode: 'dev-file' | 'stdout' | 'silent';
+    dir: string;
+    contentMode: BridgeLogContentMode;
+    maxContentChars: number;
+  };
 };
 
 function isEnabled(rawValue: string | undefined): boolean {
@@ -129,5 +143,11 @@ export function loadEnvConfig(
     workspace: resolveWorkspaceConfig(parsedEnv),
     runtimePolicy: createRuntimePolicy(),
     models: createModelCatalog(),
+    logging: {
+      mode: parsedEnv.BRIDGE_LOG_MODE ?? 'dev-file',
+      dir: resolve(parsedEnv.BRIDGE_LOG_DIR ?? DEFAULT_DEV_LOG_DIR),
+      contentMode: parsedEnv.BRIDGE_LOG_CONTENT_MODE ?? 'none',
+      maxContentChars: parsedEnv.BRIDGE_LOG_MAX_CONTENT_CHARS ?? DEFAULT_LOG_CONTENT_CHARS,
+    },
   };
 }

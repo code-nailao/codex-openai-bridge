@@ -1,6 +1,13 @@
+import type { Usage } from '@openai/codex-sdk';
+
 import type { NormalizedRuntimeEvent } from '../../contracts/runtime.js';
 import { createResponseObject } from '../../adapters/responses-adapter.js';
 import { writeNamedSseEvent, type SseStream } from './sse-stream.js';
+
+export type StreamedResponseResult = {
+  text: string;
+  usage: Usage | null;
+};
 
 export async function streamResponses(options: {
   stream: SseStream;
@@ -8,7 +15,7 @@ export async function streamResponses(options: {
   responseId: string;
   model: string;
   createdAt: Date;
-}) {
+}): Promise<StreamedResponseResult> {
   const messageId = `msg_${options.responseId.replace(/^resp_/, '')}`;
   let accumulatedText = '';
   let completedUsage: NormalizedRuntimeEvent | null = null;
@@ -72,4 +79,9 @@ export async function streamResponses(options: {
       createdAt: options.createdAt,
     }),
   });
+
+  return {
+    text: accumulatedText,
+    usage: completedUsage?.type === 'run_completed' ? completedUsage.usage : null,
+  };
 }

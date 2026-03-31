@@ -335,6 +335,58 @@ describe('POST /v1/responses', () => {
     expect(response.body).toContain('event: response.completed');
   });
 
+  it('does not duplicate provisional text when the runtime revises an early response snapshot', async () => {
+    const runtime = new FakeRuntime(
+      {
+        threadId: 'thread-response-revision',
+        finalResponse: 'unused',
+        items: [],
+        usage: null,
+      },
+      {
+        threadId: null,
+        events: createStream([
+          { type: 'thread.started', thread_id: 'thread-response-revision' },
+          { type: 'item.started', item: agentMessage('msg-1', 'He') },
+          { type: 'item.updated', item: agentMessage('msg-1', 'Hi') },
+          { type: 'item.completed', item: agentMessage('msg-1', 'Hi') },
+          {
+            type: 'turn.completed',
+            usage: {
+              input_tokens: 10,
+              cached_input_tokens: 0,
+              output_tokens: 2,
+            },
+          },
+        ]),
+      },
+    );
+
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+      },
+      runtime,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/responses',
+      payload: {
+        model: 'gpt-5.4',
+        input: 'Say hi.',
+        stream: true,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain('"delta":"Hi"');
+    expect(response.body).not.toContain('"delta":"He"');
+    expect(response.body).toContain('"text":"Hi"');
+    expect(response.body).toContain('event: response.completed');
+  });
+
   it('rejects conflicting session identifiers with a 409 error body', async () => {
     const sessionStore = createStore();
     const runtime = new FakeRuntime(

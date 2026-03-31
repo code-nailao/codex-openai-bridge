@@ -49,6 +49,24 @@ describe('EventNormalizer', () => {
     ]);
   });
 
+  it('suppresses provisional started text when a later snapshot revises it before completion', () => {
+    const normalizer = new EventNormalizer();
+    const events: ThreadEvent[] = [
+      { type: 'thread.started', thread_id: 'thread-early-revision' },
+      { type: 'item.started', item: agentMessage('msg-1', 'He') },
+      { type: 'item.updated', item: agentMessage('msg-1', 'Hi') },
+      { type: 'item.completed', item: agentMessage('msg-1', 'Hi') },
+    ];
+
+    const normalized = events.flatMap((event) => normalizer.normalize(event));
+
+    expect(normalized).toEqual([
+      { type: 'run_started', threadId: 'thread-early-revision' },
+      { type: 'message_delta', text: 'Hi' },
+      { type: 'message_done', text: 'Hi' },
+    ]);
+  });
+
   it('maps approval failures into approval_required events', () => {
     const normalizer = new EventNormalizer();
 
