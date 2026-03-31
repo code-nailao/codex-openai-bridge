@@ -189,6 +189,81 @@ describe('dev file logging', () => {
     expect(serializedEntries).not.toContain('response_preview');
   });
 
+  it('captures raw request diagnostics for validation errors before route normalization', async () => {
+    const logger = new MemoryLogger();
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+      },
+      logger,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: {
+        messages: [{ role: 'user', content: 'Say hello.' }],
+        reasoning_effort: null,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const requestLog = logger.entries.find((entry) => entry.event === 'http_request');
+
+    expect(requestLog).toMatchObject({
+      level: 'info',
+      event: 'http_request',
+      status_code: 400,
+      error_type: 'invalid_request_error',
+      error_code: 'invalid_request',
+      request_body_kind: 'object',
+      request_body_keys: 'messages,reasoning_effort',
+      request_reasoning_effort_kind: 'null',
+      request_reasoning_effort_raw: null,
+    });
+    expect(requestLog?.response_chars).toEqual(expect.any(Number));
+    expect(requestLog?.request_chars).toEqual(expect.any(Number));
+  });
+
+  it('logs a redacted raw request preview for validation errors when errors-only mode is enabled', async () => {
+    const logger = new MemoryLogger();
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+        BRIDGE_LOG_CONTENT_MODE: 'errors-only',
+      },
+      logger,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: {
+        messages: [{ role: 'user', content: 'token=super-secret-request' }],
+        reasoning_effort: null,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const requestLog = logger.entries.find((entry) => entry.event === 'http_request');
+
+    expect(requestLog).toMatchObject({
+      level: 'info',
+      event: 'http_request',
+      status_code: 400,
+      request_reasoning_effort_kind: 'null',
+      request_reasoning_effort_raw: null,
+      request_truncated: false,
+    });
+    expect(requestLog?.request_preview).toEqual(expect.any(String));
+
+    const serializedEntries = JSON.stringify(logger.entries);
+    expect(serializedEntries).toContain('token=[REDACTED]');
+    expect(serializedEntries).not.toContain('super-secret-request');
+  });
+
   it('logs redacted content previews when full content logging is enabled', async () => {
     const logger = new MemoryLogger();
     const runtime = new FakeRuntime(

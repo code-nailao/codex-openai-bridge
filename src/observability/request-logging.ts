@@ -5,10 +5,17 @@ import type { BridgeConfig } from '../config/env.js';
 import type { LoggerLike } from './bridge-logger.js';
 import { shouldIncludeContentPreview, summarizeLogText, type LogContentSummary } from './log-content.js';
 
+type PrimitiveLogValue = string | number | boolean | null;
+
 type RequestLogContext = {
   model?: string;
   stream?: boolean;
   reasoningEffort?: string;
+  requestContentType?: string;
+  requestBodyKind?: string;
+  requestBodyKeys?: string;
+  requestReasoningEffortKind?: string;
+  requestReasoningEffortRaw?: PrimitiveLogValue;
   usage?: {
     inputTokens: number;
     outputTokens: number;
@@ -59,6 +66,60 @@ function toLatencyMilliseconds(startedAt: bigint | undefined): number | null {
   return Number(((process.hrtime.bigint() - startedAt) / 1_000_000n).toString());
 }
 
+function describeValueKind(value: unknown): string {
+  if (value === null) {
+    return 'null';
+  }
+
+  if (Array.isArray(value)) {
+    return 'array';
+  }
+
+  return typeof value;
+}
+
+function serializeRequestBody(body: unknown): string | null {
+  if (body === undefined) {
+    return null;
+  }
+
+  if (typeof body === 'string') {
+    return body;
+  }
+
+  try {
+    return JSON.stringify(body);
+  } catch {
+    return `[unserializable:${describeValueKind(body)}]`;
+  }
+}
+
+function extractReasoningEffortMetadata(body: unknown): {
+  kind?: string;
+  raw?: PrimitiveLogValue;
+} {
+  if (!body || typeof body !== 'object' || Array.isArray(body) || !Reflect.has(body, 'reasoning_effort')) {
+    return {};
+  }
+
+  const rawValue: unknown = Reflect.get(body, 'reasoning_effort');
+  const kind = describeValueKind(rawValue);
+
+  if (
+    rawValue === null ||
+    typeof rawValue === 'string' ||
+    typeof rawValue === 'number' ||
+    typeof rawValue === 'boolean'
+  ) {
+    return {
+      kind,
+      raw: rawValue,
+    };
+  }
+
+  return { kind };
+}
+
 export function annotateRequestLogContext(request: FastifyRequest, fields: RequestLogContext) {
   requestLogContext.set(request, {
     ...(requestLogContext.get(request) ?? {}),
@@ -73,6 +134,7 @@ function buildContentFields(
 ): Record<string, string | number | boolean | null> {
   const context = requestLogContext.get(request);
   const includePreview = shouldIncludeContentPreview(logging, statusCode);
+  const includeErrorDiagnostics = statusCode >= 400;
   const fields: Record<string, string | number | boolean | null> = {
     ...(context?.stream !== undefined ? { stream: context.stream } : {}),
     ...(context?.reasoningEffort ? { reasoning_effort: context.reasoningEffort } : {}),
@@ -88,6 +150,21 @@ function buildContentFields(
           error_type: context.error.type,
           error_code: context.error.code,
         }
+      : {}),
+    ...(includeErrorDiagnostics && context?.requestContentType
+      ? { request_content_type: context.requestContentType }
+      : {}),
+    ...(includeErrorDiagnostics && context?.requestBodyKind
+      ? { request_body_kind: context.requestBodyKind }
+      : {}),
+    ...(includeErrorDiagnostics && context?.requestBodyKeys
+      ? { request_body_keys: context.requestBodyKeys }
+      : {}),
+    ...(includeErrorDiagnostics && context?.requestReasoningEffortKind
+      ? { request_reasoning_effort_kind: context.requestReasoningEffortKind }
+      : {}),
+    ...(includeErrorDiagnostics && context?.requestReasoningEffortRaw !== undefined
+      ? { request_reasoning_effort_raw: context.requestReasoningEffortRaw }
       : {}),
   };
 
@@ -152,6 +229,27 @@ export function annotateRequestLogError(
   });
 }
 
+function annotateParsedRequestBody(request: FastifyRequest, logging: BridgeConfig['logging']) {
+  const serializedBody = serializeRequestBody(request.body);
+  const reasoningEffort = extractReasoningEffortMetadata(request.body);
+  const contentType = headerValueToString(request.headers['content-type']);
+  const bodyKeys =
+    request.body && typeof request.body === 'object' && !Array.isArray(request.body)
+      ? Object.keys(request.body).sort().join(',') || undefined
+      : undefined;
+
+  annotateRequestLogContext(request, {
+    ...(contentType ? { requestContentType: contentType } : {}),
+    ...(request.body !== undefined ? { requestBodyKind: describeValueKind(request.body) } : {}),
+    ...(bodyKeys ? { requestBodyKeys: bodyKeys } : {}),
+    ...(reasoningEffort.kind ? { requestReasoningEffortKind: reasoningEffort.kind } : {}),
+    ...(reasoningEffort.raw !== undefined || reasoningEffort.kind === 'null'
+      ? { requestReasoningEffortRaw: reasoningEffort.raw ?? null }
+      : {}),
+    ...(serializedBody ? { requestContent: summarizeLogText(serializedBody, logging) } : {}),
+  });
+}
+
 export function registerRequestLogging(
   app: FastifyInstance,
   logger: LoggerLike,
@@ -162,6 +260,11 @@ export function registerRequestLogging(
   app.addHook('onRequest', (request, _reply, done) => {
     requestStartedAt.set(request, process.hrtime.bigint());
     requestLogContext.set(request, {});
+    done();
+  });
+
+  app.addHook('preValidation', (request, _reply, done) => {
+    annotateParsedRequestBody(request, logging);
     done();
   });
 

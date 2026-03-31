@@ -287,6 +287,7 @@ HTTP 层不负责：
 补充约束：
 
 - 流式与非流式请求都必须在 run 结束后补齐 token usage，不能因为 SSE 路径而丢失 `input_tokens` / `output_tokens` / `total_tokens`
+- 对失败请求，允许补充低风险原始诊断字段，例如 `request_body_kind`、`request_body_keys`、`request_reasoning_effort_raw`，帮助排查“字段明明没传却报错”的问题
 
 默认不记录：
 
@@ -300,6 +301,7 @@ HTTP 层不负责：
 - `BRIDGE_LOG_CONTENT_MODE=full`：所有请求记录脱敏后的请求/响应预览
 - 所有预览都必须先脱敏，再按 `BRIDGE_LOG_MAX_CONTENT_CHARS` 截断
 - 预览日志只允许作为本地诊断能力，不允许把默认模式改成全量正文落盘
+- 即使 `BRIDGE_LOG_CONTENT_MODE=none`，失败请求也应尽量保留低风险结构化诊断字段，而不是只留下一个孤立的 `400`
 
 当前默认本地开发日志布局：
 

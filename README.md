@@ -185,6 +185,7 @@ curl http://127.0.0.1:8787/v1/responses \
 - 默认只记录最小化运维日志与请求/响应长度统计，不记录 prompt / response 正文
 - 默认运维字段包括 `stream`、`reasoning_effort`、token usage 与稳定错误码，方便排障但不泄露正文
 - 流式与非流式请求都会在 run 完成后补齐 token usage，避免 SSE 路径日志缺字段
+- 对 `400/409/422/5xx` 这类失败请求，日志会额外补充低风险诊断字段，如 `request_body_kind`、`request_body_keys`，以及 `request_reasoning_effort_raw`
 - 需要排障时可显式开启 `BRIDGE_LOG_CONTENT_MODE=errors-only|full`；预览内容会先脱敏，再按 `BRIDGE_LOG_MAX_CONTENT_CHARS` 截断
 - 默认以 JSON lines 写本地开发日志到 `log/dev/yy-mm/yy-mm-dd.log`
 - 默认工作目录落在隔离子目录 `.codex-openai-bridge/workspaces/default-chat`；`x-codex-cwd` 默认关闭
