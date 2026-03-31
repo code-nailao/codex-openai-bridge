@@ -68,7 +68,7 @@ describe('POST /v1/chat/completions', () => {
     });
     expect(runtime.runCalls[0]?.threadOptions).toMatchObject({
       model: 'gpt-5.4',
-      modelReasoningEffort: 'medium',
+      modelReasoningEffort: 'low',
       workingDirectory: resolve('.codex-openai-bridge/workspaces/default-chat'),
     });
   });
@@ -111,7 +111,7 @@ describe('POST /v1/chat/completions', () => {
     expect(response.statusCode).toBe(200);
     expect(runtime.runCalls[0]?.threadOptions).toMatchObject({
       model: 'gpt-5.4',
-      modelReasoningEffort: 'medium',
+      modelReasoningEffort: 'low',
     });
   });
 

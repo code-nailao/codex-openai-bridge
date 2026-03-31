@@ -154,7 +154,7 @@ describe('OpenAI SDK compatibility', () => {
     });
     expect(runtime.runCalls[0]?.threadOptions).toMatchObject({
       model: 'gpt-5.4',
-      modelReasoningEffort: 'medium',
+      modelReasoningEffort: 'low',
     });
   });
 });

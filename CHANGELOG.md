@@ -6,8 +6,9 @@
 
 ### Changed
 
+- 将桥接层默认 `reasoning_effort` 从 `medium` 下调为 `low`，同时保持客户端显式传值优先
 - 优化失败请求日志：在请求归一化前就保留低风险原始结构诊断字段，便于定位 `reasoning_effort` 等参数为何被判定为非法
-- 放宽 `reasoning_effort` 兼容处理：`null`、空字符串、空白字符串和 `"none"` 会按未传处理，并回落到默认 `medium`
+- 放宽 `reasoning_effort` 兼容处理：`null`、空字符串、空白字符串和 `"none"` 会按未传处理，并回落到默认 `low`
 
 ## [0.1.1] - 2026-03-31
 

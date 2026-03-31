@@ -143,7 +143,7 @@ CLI 启动入口默认读取仓库根目录 `.env`；显式传入 `env` 的 prog
 - workspace override 必须显式开启，并受 allowlist 约束
 - 缺省 workspace 应落在隔离子目录，避免 bridge 默认读取仓库根或业务项目根
 - 模型选择默认由桥接层补为 `gpt-5.4`，客户端也可以显式覆盖
-- `reasoning_effort` 默认由桥接层补为 `medium`，客户端也可以显式覆盖
+- `reasoning_effort` 默认由桥接层补为 `low`，客户端也可以显式覆盖
 
 当前默认支持的请求模型 id：
 
@@ -197,8 +197,8 @@ HTTP 层不负责：
 
 - 支持 `model`、`messages`、`stream`、`max_completion_tokens`、`reasoning_effort`
 - 当 `model` 缺失时默认按 `gpt-5.4` 执行
-- 当 `reasoning_effort` 缺失时默认按 `medium` 执行
-- 出于兼容性考虑，`reasoning_effort: null`、空字符串、空白字符串或 `"none"` 会按缺失字段处理，并回落到默认 `medium`
+- 当 `reasoning_effort` 缺失时默认按 `low` 执行
+- 出于兼容性考虑，`reasoning_effort: null`、空字符串、空白字符串或 `"none"` 会按缺失字段处理，并回落到默认 `low`
 - 只支持文本内容
 - 对 `tools`、`audio`、`response_format` 等未实现字段返回 `422 unsupported_feature`
 - 优先保持客户端消息历史驱动语义，不依赖隐藏 thread 记忆保证正确性
@@ -207,8 +207,8 @@ HTTP 层不负责：
 
 - 支持 `model`、`input`、`instructions`、`stream`、`previous_response_id`
 - 当 `model` 缺失时默认按 `gpt-5.4` 执行
-- 当 `reasoning_effort` 缺失时默认按 `medium` 执行
-- 出于兼容性考虑，`reasoning_effort: null`、空字符串、空白字符串或 `"none"` 会按缺失字段处理，并回落到默认 `medium`
+- 当 `reasoning_effort` 缺失时默认按 `low` 执行
+- 出于兼容性考虑，`reasoning_effort: null`、空字符串、空白字符串或 `"none"` 会按缺失字段处理，并回落到默认 `low`
 - `previous_response_id` 与 `x-session-id` 可恢复已有 thread
 - 两者冲突时返回 `409 session_conflict`
 - `responses` 是 thread 续接主路径

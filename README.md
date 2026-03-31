@@ -58,8 +58,8 @@
 - 错误体统一采用 OpenAI 风格：`{ error: { message, type, code, param? } }`
 - 所有成功响应回写 `x-session-id` 与 `x-codex-thread-id`
 - 当客户端未传 `model` 时，桥接层默认使用 `gpt-5.4`
-- 当客户端未传 `reasoning_effort` 时，桥接层默认使用 `medium`
-- 对兼容性较差的上游调用方，`reasoning_effort: null`、`""`、空白字符串或 `"none"` 会被桥接层按“未传”处理，并回落到默认 `medium`
+- 当客户端未传 `reasoning_effort` 时，桥接层默认使用 `low`
+- 对兼容性较差的上游调用方，`reasoning_effort: null`、`""`、空白字符串或 `"none"` 会被桥接层按“未传”处理，并回落到默认 `low`
 
 ### 当前支持的模型 id
 
@@ -119,7 +119,7 @@ npm run dev
 - `BRIDGE_LOG_MAX_CONTENT_CHARS`：内容日志预览最大字符数，默认 `2000`
 - `BRIDGE_DISABLE_AUTH=true`：仅限本地受控环境调试时关闭鉴权
 - 模型选择不写在 env；每次请求可以显式传 `model`，不传时默认 `gpt-5.4`
-- `reasoning_effort` 不写在 env；每次请求可以显式传值，不传时默认 `medium`
+- `reasoning_effort` 不写在 env；每次请求可以显式传值，不传时默认 `low`
 
 ### OpenAI SDK 接入示例
 
@@ -133,7 +133,7 @@ const client = new OpenAI({
 
 const completion = await client.chat.completions.create({
   model: 'gpt-5.4',
-  reasoning_effort: 'medium',
+  reasoning_effort: 'low',
   messages: [{ role: 'user', content: 'Say hello.' }],
 });
 
@@ -173,7 +173,7 @@ curl http://127.0.0.1:8787/v1/responses \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gpt-5.4",
-    "reasoning_effort": "medium",
+    "reasoning_effort": "low",
     "input": "Explain what this repository does."
   }'
 ```

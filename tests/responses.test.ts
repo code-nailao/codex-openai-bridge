@@ -85,7 +85,7 @@ describe('POST /v1/responses', () => {
     });
     expect(runtime.runCalls[0]?.threadOptions).toMatchObject({
       model: 'gpt-5.4',
-      modelReasoningEffort: 'medium',
+      modelReasoningEffort: 'low',
     });
   });
 
@@ -127,7 +127,7 @@ describe('POST /v1/responses', () => {
     expect(response.statusCode).toBe(200);
     expect(runtime.runCalls[0]?.threadOptions).toMatchObject({
       model: 'gpt-5.4',
-      modelReasoningEffort: 'medium',
+      modelReasoningEffort: 'low',
     });
   });
 
