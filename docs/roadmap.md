@@ -15,7 +15,7 @@
 | Collaboration rules | `done` | 固化人类与 agents 的协作纪律、TODO 规范、git 规则 | `AGENTS.md` 可直接指导后续协作 | `AGENTS.md` |
 | Development constraints | `done` | 固化实现期的目录职责、配置策略、日志与测试门槛 | `docs/development.md` 可作为后续开发基线 | `docs/development.md` |
 | Detailed roadmap | `done` | 将 Bootstrap、V1、Next 三层路线图分离 | `docs/roadmap.md` 明确区分已完成与后续增强 | `docs/roadmap.md` |
-| Version baseline | `done` | 建立语义化版本与首版 changelog | `VERSION` 与 `CHANGELOG.md` 一致指向 `0.1.0` | `VERSION`, `CHANGELOG.md` |
+| Version baseline | `done` | 建立语义化版本与版本变更记录 | `VERSION` 与 `CHANGELOG.md` 一致指向当前版本 `0.1.1` | `VERSION`, `CHANGELOG.md` |
 
 ## V1
 

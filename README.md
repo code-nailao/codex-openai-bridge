@@ -2,7 +2,7 @@
 
 > 把本地 Codex 包装成 OpenAI-compatible API 的 localhost sidecar。
 
-[![Version](https://img.shields.io/badge/version-0.1.0-0f766e.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.1.1-0f766e.svg)](./CHANGELOG.md)
 [![Status](https://img.shields.io/badge/status-v1%20implemented-0f766e.svg)](./docs/roadmap.md)
 [![Scope](https://img.shields.io/badge/scope-localhost%20sidecar-111827.svg)](./docs/development.md)
 
@@ -21,7 +21,7 @@
 
 ## 当前状态
 
-- 当前版本：`0.1.0`
+- 当前版本：`0.1.1`
 - 当前阶段：`V1 implemented`
 - 当前仓库内容：可运行服务、契约测试、开发文档、roadmap 与协作规范
 - 已验证：`chat.completions` / `responses` / `models` / `healthz`，以及 OpenAI SDK `baseURL` 模式 smoke test
