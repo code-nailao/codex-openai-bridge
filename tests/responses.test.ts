@@ -89,6 +89,48 @@ describe('POST /v1/responses', () => {
     });
   });
 
+  it.each([
+    { label: 'null', value: null },
+    { label: 'none', value: 'none' },
+    { label: 'blank string', value: '   ' },
+  ])('treats compatibility reasoning_effort value $label as omitted', async ({ value }) => {
+    const runtime = new FakeRuntime(
+      {
+        threadId: 'thread-response-defaults-compat',
+        finalResponse: 'Hello from defaults',
+        items: [],
+        usage: null,
+      },
+      {
+        threadId: 'thread-response-defaults-compat',
+        events: createStream([]),
+      },
+    );
+
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+      },
+      runtime,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/responses',
+      payload: {
+        input: 'Say hello.',
+        reasoning_effort: value,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(runtime.runCalls[0]?.threadOptions).toMatchObject({
+      model: 'gpt-5.4',
+      modelReasoningEffort: 'medium',
+    });
+  });
+
   it('creates a response object, a bridge session, and response persistence for a new request', async () => {
     const sessionStore = createStore();
     const runtime = new FakeRuntime(

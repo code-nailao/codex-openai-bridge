@@ -73,6 +73,48 @@ describe('POST /v1/chat/completions', () => {
     });
   });
 
+  it.each([
+    { label: 'null', value: null },
+    { label: 'none', value: 'none' },
+    { label: 'blank string', value: '   ' },
+  ])('treats compatibility reasoning_effort value $label as omitted', async ({ value }) => {
+    const runtime = new FakeRuntime(
+      {
+        threadId: 'thread-chat-defaults-compat',
+        finalResponse: 'Hello from defaults',
+        items: [],
+        usage: null,
+      },
+      {
+        threadId: 'thread-chat-defaults-compat',
+        events: createStream([]),
+      },
+    );
+
+    const app = await buildTestApp({
+      env: {
+        BRIDGE_DISABLE_AUTH: 'true',
+      },
+      runtime,
+    });
+    openApps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      payload: {
+        messages: [{ role: 'user', content: 'Say hello.' }],
+        reasoning_effort: value,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(runtime.runCalls[0]?.threadOptions).toMatchObject({
+      model: 'gpt-5.4',
+      modelReasoningEffort: 'medium',
+    });
+  });
+
   it('returns a non-stream OpenAI-compatible completion and session headers', async () => {
     const runtime = new FakeRuntime(
       {

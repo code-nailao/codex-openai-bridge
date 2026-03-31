@@ -204,7 +204,7 @@ describe('dev file logging', () => {
       url: '/v1/chat/completions',
       payload: {
         messages: [{ role: 'user', content: 'Say hello.' }],
-        reasoning_effort: null,
+        reasoning_effort: 'bogus',
       },
     });
 
@@ -219,8 +219,8 @@ describe('dev file logging', () => {
       error_code: 'invalid_request',
       request_body_kind: 'object',
       request_body_keys: 'messages,reasoning_effort',
-      request_reasoning_effort_kind: 'null',
-      request_reasoning_effort_raw: null,
+      request_reasoning_effort_kind: 'string',
+      request_reasoning_effort_raw: 'bogus',
     });
     expect(requestLog?.response_chars).toEqual(expect.any(Number));
     expect(requestLog?.request_chars).toEqual(expect.any(Number));
@@ -242,7 +242,7 @@ describe('dev file logging', () => {
       url: '/v1/chat/completions',
       payload: {
         messages: [{ role: 'user', content: 'token=super-secret-request' }],
-        reasoning_effort: null,
+        reasoning_effort: 'bogus',
       },
     });
 
@@ -253,8 +253,8 @@ describe('dev file logging', () => {
       level: 'info',
       event: 'http_request',
       status_code: 400,
-      request_reasoning_effort_kind: 'null',
-      request_reasoning_effort_raw: null,
+      request_reasoning_effort_kind: 'string',
+      request_reasoning_effort_raw: 'bogus',
       request_truncated: false,
     });
     expect(requestLog?.request_preview).toEqual(expect.any(String));

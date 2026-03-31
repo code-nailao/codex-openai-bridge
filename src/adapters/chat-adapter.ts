@@ -6,6 +6,8 @@ import { findSupportedModel, type SupportedModel } from '../config/models.js';
 import {
   DEFAULT_MODEL,
   DEFAULT_REASONING_EFFORT,
+  normalizeReasoningEffortInput,
+  type ReasoningEffort,
   SUPPORTED_REASONING_EFFORTS,
 } from '../config/request-defaults.js';
 import { createChatCompletionId } from '../utils/ids.js';
@@ -22,7 +24,10 @@ const chatMessageSchema = z.object({
   content: z.union([z.string(), z.array(textContentPartSchema)]),
 });
 
-const reasoningEffortSchema = z.enum(SUPPORTED_REASONING_EFFORTS);
+const reasoningEffortSchema = z.preprocess(
+  normalizeReasoningEffortInput,
+  z.enum(SUPPORTED_REASONING_EFFORTS).default(DEFAULT_REASONING_EFFORT),
+);
 
 const chatRequestSchema = z
   .object({
@@ -40,7 +45,7 @@ const chatRequestSchema = z
 export type NormalizedChatRequest = {
   model: SupportedModel;
   stream: boolean;
-  reasoningEffort: (typeof SUPPORTED_REASONING_EFFORTS)[number];
+  reasoningEffort: ReasoningEffort;
   input: string;
   threadOptions: ThreadOptions;
 };

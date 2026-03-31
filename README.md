@@ -59,6 +59,7 @@
 - 所有成功响应回写 `x-session-id` 与 `x-codex-thread-id`
 - 当客户端未传 `model` 时，桥接层默认使用 `gpt-5.4`
 - 当客户端未传 `reasoning_effort` 时，桥接层默认使用 `medium`
+- 对兼容性较差的上游调用方，`reasoning_effort: null`、`""`、空白字符串或 `"none"` 会被桥接层按“未传”处理，并回落到默认 `medium`
 
 ### 当前支持的模型 id
 
