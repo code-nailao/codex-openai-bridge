@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { homedir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 
 import packageJson from '../../package.json' with { type: 'json' };
@@ -13,7 +14,9 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(8787),
   LOCAL_BRIDGE_API_KEY: z.string().min(1).optional(),
   BRIDGE_DISABLE_AUTH: z.enum(['true', 'false', '1', '0']).optional(),
+  HOME: z.string().optional(),
   SQLITE_PATH: z.string().optional(),
+  CODEX_HOME: z.string().optional(),
   CODEX_WORKSPACE_ROOT: z.string().optional(),
   BRIDGE_ENABLE_CWD_OVERRIDE: z.enum(['true', 'false', '1', '0']).optional(),
   BRIDGE_ALLOWED_CWD_ROOTS: z.string().optional(),
@@ -24,6 +27,7 @@ const envSchema = z.object({
 });
 
 const DEFAULT_WORKSPACE_ROOT = '.codex-openai-bridge/workspaces/default-chat';
+const DEFAULT_RUNTIME_HOME_ROOT = '.codex-openai-bridge/runtime';
 const DEFAULT_DEV_LOG_DIR = 'log/dev';
 const DEFAULT_LOG_CONTENT_CHARS = 2000;
 
@@ -50,6 +54,12 @@ export type BridgeConfig = {
     allowHeaderOverride: boolean;
     allowedRoots: string[];
     provisionIfMissing: boolean;
+  };
+  runtime: {
+    userHomeDir: string;
+    sourceCodexHomeDir: string;
+    isolatedHomeDir: string;
+    isolatedCodexHomeDir: string;
   };
   runtimePolicy: RuntimePolicy;
   models: SupportedModel[];
@@ -106,6 +116,19 @@ function resolveWorkspaceConfig(parsedEnv: z.infer<typeof envSchema>): BridgeCon
   };
 }
 
+function resolveRuntimeConfig(parsedEnv: z.infer<typeof envSchema>): BridgeConfig['runtime'] {
+  const userHomeDir = resolve(parsedEnv.HOME ?? homedir());
+  const sourceCodexHomeDir = resolve(parsedEnv.CODEX_HOME ?? join(userHomeDir, '.codex'));
+  const runtimeRoot = resolve(DEFAULT_RUNTIME_HOME_ROOT);
+
+  return {
+    userHomeDir,
+    sourceCodexHomeDir,
+    isolatedHomeDir: resolve(runtimeRoot, 'home'),
+    isolatedCodexHomeDir: resolve(runtimeRoot, 'codex-home'),
+  };
+}
+
 export type LoadEnvConfigOptions = {
   envFilePath?: string | false;
 };
@@ -141,6 +164,7 @@ export function loadEnvConfig(
       dbPath: resolve(parsedEnv.SQLITE_PATH ?? '.codex-openai-bridge/bridge.sqlite'),
     },
     workspace: resolveWorkspaceConfig(parsedEnv),
+    runtime: resolveRuntimeConfig(parsedEnv),
     runtimePolicy: createRuntimePolicy(),
     models: createModelCatalog(),
     logging: {

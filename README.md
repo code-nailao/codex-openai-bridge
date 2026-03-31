@@ -31,6 +31,7 @@
 
 - **OpenAI-compatible surface**：支持 `POST /v1/chat/completions`、`POST /v1/responses`、`GET /v1/models`、`GET /healthz`
 - **Local Codex only**：底层只对接本地 Codex CLI / SDK
+- **Runtime isolation by default**：桥接层会用 `.codex-openai-bridge/runtime` 下的隔离 `HOME` / `CODEX_HOME` 启动 Codex，只引入认证缓存，不继承用户全局 skills、`AGENTS.md` 或 `config.toml`
 - **Session continuity**：通过 SQLite 管理 `x-session-id`、`response_id` 与 Codex thread 映射
 - **SSE first**：同时支持流式 SSE 与非流式 JSON
 - **Text assistant gateway**：默认只做文本助手网关，拒绝 multimodal / tools / strict structured output
@@ -111,6 +112,7 @@ npm run dev
 - `LOCAL_BRIDGE_API_KEY`：默认鉴权密钥；鉴权开启时必填
 - `SQLITE_PATH`：SQLite 存储文件路径
 - `CODEX_WORKSPACE_ROOT`：可选工作目录根；缺省时落到 `.codex-openai-bridge/workspaces/default-chat`
+- `HOME` / `CODEX_HOME`：可选；仅用于定位用户原始 Codex 认证缓存来源，桥接启动时不会把这两个目录直接暴露给隔离 runtime
 - `BRIDGE_ENABLE_CWD_OVERRIDE`：是否允许 `x-codex-cwd`
 - `BRIDGE_ALLOWED_CWD_ROOTS`：可选 cwd allowlist，逗号分隔
 - `BRIDGE_LOG_MODE`：日志模式，默认 `dev-file`
@@ -190,6 +192,7 @@ curl http://127.0.0.1:8787/v1/responses \
 - 需要排障时可显式开启 `BRIDGE_LOG_CONTENT_MODE=errors-only|full`；预览内容会先脱敏，再按 `BRIDGE_LOG_MAX_CONTENT_CHARS` 截断
 - 默认以 JSON lines 写本地开发日志到 `log/dev/yy-mm/yy-mm-dd.log`
 - 默认工作目录落在隔离子目录 `.codex-openai-bridge/workspaces/default-chat`；`x-codex-cwd` 默认关闭
+- 默认 runtime home 落在 `.codex-openai-bridge/runtime/{home,codex-home}`；桥接仅在首次启动时复制 `auth.json`，不复制用户全局 skills、`~/.codex/AGENTS.md` 或 `config.toml`
 - 这更准确地说是本地兼容桥，不是面向公网的通用反代；一旦暴露到 localhost 之外，风险会显著上升
 - 如果 Codex 仍触发审批事件，桥接层返回明确错误，而不是把 HTTP 请求挂死
 

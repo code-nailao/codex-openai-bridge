@@ -8,6 +8,7 @@ import { BridgeLogger, createNoopLogger, type LoggerLike } from './observability
 import { FileLogSink } from './observability/file-log-sink.js';
 import { annotateRequestLogError, annotateRequestLogResponse, registerRequestLogging } from './observability/request-logging.js';
 import { CodexRuntime } from './runtime/codex-runtime.js';
+import { createBridgeCodexClient } from './runtime/codex-client.js';
 import { HealthService, type HealthServiceLike } from './services/health-service.js';
 import { enforceRequestAuth } from './server/auth.js';
 import type { BridgeServices } from './server/bridge-context.js';
@@ -67,7 +68,9 @@ export async function createApp(options?: CreateAppOptions): Promise<FastifyInst
   const services: BridgeServices = {
     config,
     getRuntime() {
-      runtime ??= new CodexRuntime();
+      runtime ??= new CodexRuntime({
+        codex: createBridgeCodexClient(config),
+      });
       return runtime;
     },
     sessionStore,

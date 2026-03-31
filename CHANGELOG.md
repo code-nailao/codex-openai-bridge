@@ -6,6 +6,8 @@
 
 ### Changed
 
+- 桥接层现在默认以 `.codex-openai-bridge/runtime/{home,codex-home}` 下的隔离 `HOME` / `CODEX_HOME` 启动 Codex，只种入用户 `auth.json`，不继承用户全局 skills、`AGENTS.md` 或 `config.toml`
+- 为隔离 runtime 显式固定 `cli_auth_credentials_store=file`，并把工具子进程的 `HOME` 还原到真实用户 home，减少 shell 工具副作用
 - 将桥接层默认 `reasoning_effort` 从 `medium` 下调为 `low`，同时保持客户端显式传值优先
 - 优化失败请求日志：在请求归一化前就保留低风险原始结构诊断字段，便于定位 `reasoning_effort` 等参数为何被判定为非法
 - 放宽 `reasoning_effort` 兼容处理：`null`、空字符串、空白字符串和 `"none"` 会按未传处理，并回落到默认 `low`

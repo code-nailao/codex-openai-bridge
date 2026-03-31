@@ -60,6 +60,7 @@ src/
   contracts/
     runtime.ts
   runtime/
+    codex-client.ts
     codex-runtime.ts
     normalized-stream.ts
     thread-manager.ts
@@ -129,6 +130,7 @@ CLI 启动入口默认读取仓库根目录 `.env`；显式传入 `env` 的 prog
 - `BRIDGE_DISABLE_AUTH`：仅限本地调试时关闭鉴权
 - `SQLITE_PATH`：SQLite 数据文件
 - `CODEX_WORKSPACE_ROOT`：可选工作目录根；缺省时落到 `.codex-openai-bridge/workspaces/default-chat`
+- `HOME` / `CODEX_HOME`：可选；仅用于定位用户原始 Codex 认证缓存来源
 - `BRIDGE_ENABLE_CWD_OVERRIDE`：是否允许 `x-codex-cwd`
 - `BRIDGE_ALLOWED_CWD_ROOTS`：cwd allowlist
 - `BRIDGE_LOG_MODE`：日志模式，默认 `dev-file`
@@ -142,6 +144,8 @@ CLI 启动入口默认读取仓库根目录 `.env`；显式传入 `env` 的 prog
 - 不把环境变量读取下沉到 adapter / route 细节
 - workspace override 必须显式开启，并受 allowlist 约束
 - 缺省 workspace 应落在隔离子目录，避免 bridge 默认读取仓库根或业务项目根
+- 缺省 runtime home 应落在 `.codex-openai-bridge/runtime`，避免桥接默认继承用户全局 skills、`AGENTS.md` 与 Codex 用户级配置
+- 运行时只允许从用户 `CODEX_HOME` 种入认证缓存；不得把用户 `config.toml`、`AGENTS.md` 或 skills 目录整体复制进桥接 runtime
 - 模型选择默认由桥接层补为 `gpt-5.4`，客户端也可以显式覆盖
 - `reasoning_effort` 默认由桥接层补为 `low`，客户端也可以显式覆盖
 
@@ -181,6 +185,16 @@ HTTP 层不负责：
 - 提供 `run()` 与 `runStreamed()`
 - 处理取消信号透传
 - 统一返回 `threadId`、`usage` 与底层事件流
+
+### Bridge Codex client
+
+`src/runtime/codex-client.ts` 负责桥接专用的 Codex client 装配，边界如下：
+
+- 子进程级 `HOME` / `CODEX_HOME` 固定指向 `.codex-openai-bridge/runtime/home` 与 `.codex-openai-bridge/runtime/codex-home`
+- 首次启动时只从用户 `CODEX_HOME` 复制 `auth.json`，保证本地登录态可用，但不继承用户级 `config.toml`、`AGENTS.md` 与全局 skills
+- 明确设置 `cli_auth_credentials_store = "file"`，确保认证读取走隔离后的 `auth.json`
+- 通过 `shell_environment_policy.set.HOME` 把工具子进程的 `HOME` 还原成真实用户 home，尽量降低 shell / CLI 工具因 home 变化带来的副作用
+- 该层只负责 runtime 环境隔离，不负责请求映射、session 恢复或 HTTP 语义
 
 ### SessionStore
 

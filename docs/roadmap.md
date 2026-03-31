@@ -25,6 +25,7 @@
 | Runtime policy and config | `done` | 固化 host、auth、workspace、sandbox、approval、直接模型目录与请求默认值等运行策略 | 配置集中校验，启动期即可发现缺失或冲突 | `src/config/env.ts`, `src/config/runtime-policy.ts`, `src/config/models.ts`, `src/config/request-defaults.ts` |
 | SQLite session store | `done` | 持久化 session/thread/response 映射并提供互斥锁 | 服务重启后可恢复 session，同 session 不发生并发乱序 | `src/store/session-store.ts`, `src/store/locks.ts` |
 | Codex runtime wrapper | `done` | 封装 `@openai/codex-sdk` 的 thread 创建、恢复、取消与 usage 抽取 | 统一暴露 `run()`、`runStreamed()`、abort 与 usage 结果 | `src/runtime/codex-runtime.ts`, `src/runtime/thread-manager.ts` |
+| Runtime home isolation | `done` | 让桥接默认以隔离 `HOME` / `CODEX_HOME` 启动 Codex，避免用户全局 skills 与用户级 Codex 指导泄漏进默认对话 runtime | 桥接只种入 `auth.json`，不复制用户 `config.toml`、`AGENTS.md` 或 skills 目录，同时保持本地登录态可用 | `src/runtime/codex-client.ts`, `src/config/env.ts`, `tests/runtime-isolation.test.ts` |
 | Event normalization | `done` | 将底层 Codex 事件收敛成桥接层内部事件 | `chat` 与 `responses` adapter 复用同一事件面 | `src/adapters/event-normalizer.ts`, `src/runtime/normalized-stream.ts` |
 | Chat completions JSON | `done` | 实现 `POST /v1/chat/completions` 非流式文本路径 | 文本 `messages` 返回 assistant 内容、usage 和 session headers，并在缺省时补默认模型与思考强度 | `src/server/routes/chat-completions.ts`, `src/adapters/chat-adapter.ts` |
 | Chat completions SSE | `done` | 实现 `chat.completion.chunk` 流式输出 | 客户端收到 role chunk、delta chunks、stop chunk 与 `[DONE]` | `src/server/sse/chat-stream.ts`, `src/server/sse/sse-stream.ts` |
